@@ -82,8 +82,9 @@ class _LifecyclePageState extends State<LifecyclePage> {
       if (!mounted) return;
       setState(() {
         _reports[p.id] = r;
-        // Default to the place most likely to keep going while hidden: the
-        // root process (its own OS process), then the worker, then inline.
+        // Default to the place that keeps going while hidden, as the brick's
+        // Places.lasting does (docs/patterns/places.md in bricks): the root
+        // process, then the worker, then inline.
         if (r.ok && _rank(p.id) > _rank(_placeId)) _placeId = p.id;
       });
     }
