@@ -16,7 +16,7 @@ import 'package:demo_core/demo_core.dart';
 /// `<module>/bin/demo serve` detached. Here bin/demo runs the CLI
 /// from source instead of the AOT snapshot flutter_p0g ships.
 void main() {
-  test('the hello service runs in the CLI launched through the root channel', () async {
+  test('hello runs in the CLI launched through the root channel', () async {
     final module = await Directory.systemTemp.createTemp('p0g_module');
     RootChannelServer? server;
     RootChannel? channel;
