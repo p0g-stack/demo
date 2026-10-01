@@ -6,10 +6,29 @@ import 'package:flutter/material.dart';
 /// Facts in [needed] that the place lacks are marked, so a page can show
 /// at a glance what stops it.
 class FactsView extends StatelessWidget {
-  const FactsView({super.key, required this.facts, this.needed = const {}});
+  const FactsView({
+    super.key,
+    required this.facts,
+    this.needed = const {},
+    this.off = const {},
+  });
 
-  final Facts facts;
+  final PlaceFacts facts;
   final Set<String> needed;
+
+  /// Facts switched off on the page to show a fallback.
+  final Set<String> off;
+
+  /// How squadron_process checks each fact, inside the place.
+  static const checks = {
+    Fact.root: 'effective uid 0',
+    Fact.blockDevices: 'a kernel-listed block device opens for reading',
+    Fact.usbNative: '/dev/bus/usb lists',
+    Fact.usbWeb: 'navigator.usb exists',
+    Fact.processSpawn: 'a shell runs',
+    Fact.fsPersistent: 'working dir writable, or storage persisted',
+    Fact.net: 'a non-loopback interface is up, or onLine',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -38,9 +57,11 @@ class FactsView extends StatelessWidget {
                 SizedBox(width: 112, child: Text(f)),
                 Expanded(
                   child: Text(
-                    facts.masked.contains(f)
+                    off.contains(f)
                         ? 'switched off on this page'
-                        : facts.notes[f] ?? 'not reported',
+                        : facts.keys.contains(f)
+                        ? 'check: ${checks[f]}'
+                        : 'not checked',
                     style: small,
                   ),
                 ),

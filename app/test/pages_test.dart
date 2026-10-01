@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:demo/pages/lifecycle/lifecycle_page.dart';
 import 'package:demo/pages/lifecycle/run_store.dart';
 import 'package:demo/pages/pages.dart';
@@ -9,19 +7,8 @@ import 'package:demo_core/demo_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// A service that answers from fixed facts and never touches the machine.
+/// A service that never touches the machine.
 base class FakeService extends DemoService {
-  FakeService(this.have);
-
-  final Set<String> have;
-
-  @override
-  Future<Map<String, dynamic>> facts() async => Facts(
-    runtime: 'fake place',
-    values: {for (final f in Fact.all) f: have.contains(f)},
-    notes: {for (final f in Fact.all) f: 'fake'},
-  ).toJson();
-
   @override
   Future<Map<String, dynamic>> crunch(int n) async => {'count': 1, 'ms': 2};
 
@@ -35,18 +22,26 @@ base class FakeService extends DemoService {
       const Stream.empty();
 }
 
-final class FakePlace extends Place {
-  FakePlace(this.id, Set<String> have) : service = FakeService(have);
+/// A place that answers from fixed facts.
+final class FakePlace extends DemoPlace {
+  FakePlace(this.id, this.have);
 
   @override
   final String id;
+  final Set<String> have;
   @override
   String get label => 'fake $id';
   @override
-  final DemoService service;
+  String get kind => 'fake';
+  @override
+  final DemoService service = FakeService();
+
+  @override
+  Future<PlaceFacts> facts() async =>
+      PlaceFacts({for (final f in Fact.all) f: have.contains(f)});
 }
 
-Widget host(Widget page, List<Place> Function() places, [Ledger? ledger]) =>
+Widget host(Widget page, List<DemoPlace> Function() places, [Ledger? ledger]) =>
     DemoScope(
       places: places,
       ledger: ledger ?? Ledger(),
@@ -75,10 +70,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(
-        find.textContaining('reports itself as: fake place'),
-        findsOneWidget,
-      );
+      expect(find.text('kind: fake'), findsOneWidget);
       expect(find.text('no root channel here'), findsOneWidget);
       expect(
         find.textContaining('Without it, work that needs root'),

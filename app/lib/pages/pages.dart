@@ -16,7 +16,7 @@ class DemoScope extends InheritedWidget {
 
   /// Each page opens its own places, so one page restarting a worker never
   /// stops another page's task.
-  final List<Place> Function() places;
+  final List<DemoPlace> Function() places;
   final Ledger ledger;
 
   static DemoScope of(BuildContext context) =>
@@ -25,6 +25,28 @@ class DemoScope extends InheritedWidget {
   @override
   bool updateShouldNotify(DemoScope oldWidget) =>
       places != oldWidget.places || ledger != oldWidget.ledger;
+}
+
+/// The places this build offers.
+///
+/// The root process needs a launcher: on WebUI the p0g_app brick wires one
+/// over flutter-webui's root channel. Until then, a page can be pointed at a
+/// running `demo serve` for development: `?place=<port>&token=<token>`.
+List<DemoPlace> placesForThisBuild() {
+  final q = Uri.base.queryParameters;
+  final port = int.tryParse(q['place'] ?? '');
+  final token = q['token'];
+  return demoPlaces(
+    process: port != null && token != null
+        ? ProcessPlace(
+            endpoint: ProcessEndpoint(port: port, token: token),
+          )
+        : null,
+    missingReason:
+        'no launcher in this build yet (the WebUI one comes with the p0g_app '
+        'brick over flutter-webui\'s root channel); for development, run '
+        '`demo serve` and open ?place=<port>&token=<token>',
+  );
 }
 
 class DemoPage {

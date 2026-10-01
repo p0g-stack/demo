@@ -1,11 +1,23 @@
 import 'dart:io';
 
+import 'package:squadron_process/io.dart' show checkFacts;
+
 import 'partitions.dart';
 
-Future<List<Partition>> readProcPartitions() async =>
-    parseProcPartitions(await File('/proc/partitions').readAsString());
+/// Runs [s] in this process after checking this process's own facts.
+Future<List<Partition>> runHere(PartitionStrategy s) async {
+  final a = s.available(await checkFacts());
+  if (!a.ok) throw StateError('${s.label}: ${a.reason}');
+  return switch (s) {
+    OnDevicePartitions() => parseProcPartitions(
+      await File('/proc/partitions').readAsString(),
+    ),
+    FromHostPartitions() => _fastbootGetvarAll(),
+    _ => throw ArgumentError.value(s.id, 'strategy'),
+  };
+}
 
-Future<List<Partition>> fastbootGetvarAll() async {
+Future<List<Partition>> _fastbootGetvarAll() async {
   final r = await Process.run('fastboot', const [
     'getvar',
     'all',

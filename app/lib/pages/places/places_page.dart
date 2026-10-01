@@ -34,7 +34,7 @@ class _PlacesPageState extends State<PlacesPage>
     with SingleTickerProviderStateMixin {
   static const sizes = [200000, 1000000, 3000000];
 
-  List<Place>? _places;
+  List<DemoPlace>? _places;
   final _reports = <String, PlaceReport>{};
   final _runs = <String, _Run>{};
   var _n = sizes[1];
@@ -60,7 +60,7 @@ class _PlacesPageState extends State<PlacesPage>
   @override
   void dispose() {
     _ticker.dispose();
-    for (final p in _places ?? const <Place>[]) {
+    for (final p in _places ?? const <DemoPlace>[]) {
       p.stop();
     }
     super.dispose();
@@ -120,7 +120,7 @@ class _PlacesPageState extends State<PlacesPage>
 
   @override
   Widget build(BuildContext context) {
-    final places = _places ?? const <Place>[];
+    final places = _places ?? const <DemoPlace>[];
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
@@ -179,7 +179,7 @@ class _PlacesPageState extends State<PlacesPage>
     );
   }
 
-  Widget _placeCard(Place p) {
+  Widget _placeCard(DemoPlace p) {
     final report = _reports[p.id];
     final run = _runs[p.id];
     if (report == null) {
@@ -188,7 +188,7 @@ class _PlacesPageState extends State<PlacesPage>
     if (!report.ok) {
       return Section(
         title: p.label,
-        subtitle: 'not available in this build',
+        subtitle: 'not available here',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -205,7 +205,7 @@ class _PlacesPageState extends State<PlacesPage>
     }
     return Section(
       title: p.label,
-      subtitle: 'reports itself as: ${report.facts.runtime}',
+      subtitle: 'kind: ${p.kind}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -35,7 +35,7 @@ class _LifecyclePageState extends State<LifecyclePage> {
 
   late final RunStore _store = widget.store ?? RunStore();
   late final AppLifecycleListener _listener;
-  List<Place>? _places;
+  List<DemoPlace>? _places;
   final _reports = <String, PlaceReport>{};
   String? _placeId;
 
@@ -70,7 +70,7 @@ class _LifecyclePageState extends State<LifecyclePage> {
   void dispose() {
     _listener.dispose();
     _sub?.cancel();
-    for (final p in _places ?? const <Place>[]) {
+    for (final p in _places ?? const <DemoPlace>[]) {
       p.stop();
     }
     super.dispose();
@@ -218,7 +218,7 @@ class _LifecyclePageState extends State<LifecyclePage> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final p in _places ?? const <Place>[])
+                  for (final p in _places ?? const <DemoPlace>[])
                     ChoiceChip(
                       label: Text(p.label),
                       selected: p.id == _placeId,
@@ -268,7 +268,7 @@ class _LifecyclePageState extends State<LifecyclePage> {
         ),
         if (report != null && report.ok)
           Section(
-            title: 'Facts from ${report.facts.runtime}',
+            title: 'Facts from ${report.place.label}',
             child: FactsView(facts: report.facts),
           ),
       ],

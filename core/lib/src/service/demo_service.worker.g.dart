@@ -10,9 +10,8 @@ part of 'demo_service.dart';
 // dart format width=80
 /// Command ids used in operations map
 const int _$crunchId = 1;
-const int _$factsId = 2;
-const int _$partitionsId = 3;
-const int _$ticksId = 4;
+const int _$partitionsId = 2;
+const int _$ticksId = 3;
 
 /// WorkerService operations for DemoService
 extension on DemoService {
@@ -25,7 +24,6 @@ extension on DemoService {
       } finally {}
       return $res;
     },
-    _$factsId: ($req) => facts(),
     _$partitionsId: ($req) async {
       final List<Map<String, dynamic>> $res;
       try {
@@ -51,15 +49,6 @@ base mixin _$DemoService$Invoker on Invoker implements DemoService {
   @override
   Future<Map<String, dynamic>> crunch(int n) async {
     final dynamic $res = await send(_$crunchId, args: [n]);
-    try {
-      final $dsr = _$Deser(contextAware: false);
-      return $dsr.$3($res);
-    } finally {}
-  }
-
-  @override
-  Future<Map<String, dynamic>> facts() async {
-    final dynamic $res = await send(_$factsId);
     try {
       final $dsr = _$Deser(contextAware: false);
       return $dsr.$3($res);
@@ -228,9 +217,6 @@ base class DemoServiceWorkerPool extends WorkerPool<DemoServiceWorker>
 
   @override
   Future<Map<String, dynamic>> crunch(int n) => execute((w) => w.crunch(n));
-
-  @override
-  Future<Map<String, dynamic>> facts() => execute((w) => w.facts());
 
   @override
   Future<List<Map<String, dynamic>>> partitions(String id) =>

@@ -5,7 +5,11 @@ import 'pages/pages.dart';
 
 void main() {
   runApp(
-    DemoScope(places: defaultPlaces, ledger: Ledger(), child: const DemoApp()),
+    DemoScope(
+      places: placesForThisBuild,
+      ledger: Ledger(),
+      child: const DemoApp(),
+    ),
   );
 }
 

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
-import 'facts/facts.dart';
+import 'package:squadron_process/squadron_process.dart';
 
 /// One call, as the app accounts for it: what ran, where, with what facts.
 final class RunRecord {
@@ -18,7 +18,7 @@ final class RunRecord {
   final String task;
   final String? strategy;
   final String place;
-  final Facts facts;
+  final PlaceFacts facts;
   final DateTime at;
   final Duration elapsed;
 
@@ -31,7 +31,9 @@ final class RunRecord {
   String toString() =>
       '$task'
       '${strategy == null ? '' : ' via $strategy'}'
-      ' in $place: $outcome (${elapsed.inMilliseconds} ms) facts $facts';
+      ' in $place: $outcome (${elapsed.inMilliseconds} ms), facts: '
+      '${[for (final f in Fact.all)
+        if (facts.has(f)) f].join(', ')}';
 }
 
 /// Every call the app made, newest last. Records also go to the log.
@@ -52,7 +54,7 @@ final class Ledger {
   Future<T> track<T>({
     required String task,
     required String place,
-    required Facts facts,
+    required PlaceFacts facts,
     String? strategy,
     required Future<T> Function() body,
   }) async {

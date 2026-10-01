@@ -1,4 +1,4 @@
-import '../facts/facts.dart';
+import 'package:squadron_process/squadron_process.dart';
 
 /// One way to get a task done, with the facts it needs.
 ///
@@ -13,8 +13,13 @@ abstract class Strategy {
   Set<String> get requires;
 
   /// Whether this strategy can run in a place with [facts], and if not, why.
-  Availability available(Facts facts) =>
-      Availability(this, missing: facts.missing(requires));
+  Availability available(PlaceFacts facts) => Availability(
+    this,
+    missing: {
+      for (final f in requires)
+        if (!facts.has(f)) f,
+    },
+  );
 }
 
 final class Availability {
@@ -59,5 +64,10 @@ final class Selection {
 }
 
 /// Picks the first strategy, in preference order, that [facts] allow.
-Selection pick(List<Strategy> strategies, Facts facts) =>
+Selection pick(List<Strategy> strategies, PlaceFacts facts) =>
     Selection([for (final s in strategies) s.available(facts)]);
+
+/// [facts] with [off] read as missing, to show a fallback. Facts can only be
+/// taken away, never added.
+PlaceFacts withoutFacts(PlaceFacts facts, Set<String> off) =>
+    facts.merge({for (final f in off) f: false});

@@ -12,6 +12,7 @@ executables:
 dependencies:
   args: ^2.7.0
   demo_core: any
+  squadron_process: any
 
 dev_dependencies:
   lints: ^6.0.0

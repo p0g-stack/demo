@@ -2,15 +2,20 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:demo_core/demo_core.dart';
+import 'package:squadron_process/io.dart';
 
-/// The demo's CLI. On WebUI it is also the root process (`serve`, once
-/// squadron_process provides the socket channel).
+/// The demo's CLI. On WebUI it is also the root process: `serve` hosts
+/// DemoService as a squadron_process place.
 Future<void> main(List<String> args) async {
+  if (args.firstOrNull == 'serve') {
+    // serve owns stdout (its first line is the ready line) and exits by the
+    // lifetime rule: closed stops.
+    exit(await serve(DemoServiceWorker(), args.skip(1).toList()));
+  }
   final runner = CommandRunner<void>('demo', 'p0g-stack demo CLI.')
     ..addCommand(FactsCommand())
     ..addCommand(CrunchCommand())
-    ..addCommand(PartitionsCommand())
-    ..addCommand(ServeCommand());
+    ..addCommand(PartitionsCommand());
   try {
     await runner.run(args);
   } on UsageException catch (e) {
@@ -27,13 +32,9 @@ class FactsCommand extends Command<void> {
 
   @override
   Future<void> run() async {
-    final f = await probeFacts(as: 'demo cli');
-    stdout.writeln(f.runtime);
+    final f = await checkFacts();
     for (final fact in Fact.all) {
-      stdout.writeln(
-        '  ${f.has(fact) ? 'yes' : 'no '}  $fact'
-        '  (${f.notes[fact] ?? 'not reported'})',
-      );
+      stdout.writeln('${f.has(fact) ? 'yes' : 'no '}  $fact');
     }
   }
 }
@@ -76,8 +77,10 @@ class PartitionsCommand extends Command<void> {
 
   @override
   Future<void> run() async {
-    final facts = (await probeFacts(as: 'demo cli'))
-        .mask((argResults!['mask'] as List<String>).toSet());
+    final facts = withoutFacts(
+      await checkFacts(),
+      (argResults!['mask'] as List<String>).toSet(),
+    );
     final selection = pick(partitionStrategies, facts);
     stdout.writeln(selection.why);
     final chosen = selection.chosen as PartitionStrategy?;
@@ -101,21 +104,5 @@ class PartitionsCommand extends Command<void> {
       stderr.writeln(ledger.records.last);
       exitCode = 1;
     }
-  }
-}
-
-class ServeCommand extends Command<void> {
-  @override
-  final name = 'serve';
-  @override
-  final description =
-      'Host DemoService for the app over a socket (root process).';
-
-  @override
-  Future<void> run() async {
-    stderr.writeln(
-      'serve needs squadron_process (socket channel); not wired yet.',
-    );
-    exitCode = 69;
   }
 }

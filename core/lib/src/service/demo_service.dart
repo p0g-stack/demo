@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:squadron/squadron.dart';
 
-import '../facts/probe.dart';
 import '../tasks/partitions.dart';
 import 'demo_service.activator.g.dart';
 
@@ -14,10 +13,6 @@ part 'demo_service.worker.g.dart';
 /// Worker on the web). The same class also runs directly in the page.
 @SquadronService(baseUrl: '~/workers', targetPlatform: TargetPlatform.all)
 base class DemoService {
-  /// What the place this service runs in can do, probed from inside it.
-  @SquadronMethod()
-  Future<Map<String, dynamic>> facts() async => (await probeFacts()).toJson();
-
   /// CPU work: counts the primes below [n] by trial division.
   /// Returns the count and the milliseconds spent inside the place.
   @SquadronMethod()
@@ -47,12 +42,10 @@ base class DemoService {
     }
   }
 
-  /// Lists partitions with the strategy [id], after checking this place's
-  /// own facts allow it.
+  /// Lists partitions with the strategy [id]; the strategy checks this
+  /// place's own facts first.
   @SquadronMethod()
   Future<List<Map<String, dynamic>>> partitions(String id) async {
-    final s = partitionStrategy(id);
-    checkAvailable(s, await probeFacts());
-    return [for (final p in await s.run()) p.toJson()];
+    return [for (final p in await partitionStrategy(id).run()) p.toJson()];
   }
 }

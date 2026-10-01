@@ -1,4 +1,5 @@
-import '../facts/facts.dart';
+import 'package:squadron_process/squadron_process.dart';
+
 import '../strategy/strategy.dart';
 import 'partitions_stub.dart' if (dart.library.io) 'partitions_io.dart' as impl;
 
@@ -22,8 +23,8 @@ final class Partition {
 abstract class PartitionStrategy extends Strategy {
   const PartitionStrategy();
 
-  /// Runs inside the place; only call where [available] said yes.
-  Future<List<Partition>> run();
+  /// Runs in the current place, after checking its own facts allow it.
+  Future<List<Partition>> run() => impl.runHere(this);
 }
 
 /// Reads `/proc/partitions` on the device itself; needs root to see block
@@ -37,9 +38,6 @@ final class OnDevicePartitions extends PartitionStrategy {
   String get label => 'on device (/proc/partitions as root)';
   @override
   Set<String> get requires => const {Fact.root, Fact.blockDevices};
-
-  @override
-  Future<List<Partition>> run() => impl.readProcPartitions();
 }
 
 /// Asks a USB-attached device in fastboot mode, from a host.
@@ -52,9 +50,6 @@ final class FromHostPartitions extends PartitionStrategy {
   String get label => 'from host (fastboot getvar all)';
   @override
   Set<String> get requires => const {Fact.usbNative, Fact.processSpawn};
-
-  @override
-  Future<List<Partition>> run() => impl.fastbootGetvarAll();
 }
 
 /// Preference order: on the device first, then from a host.
@@ -83,10 +78,4 @@ List<Partition> parseFastbootGetvar(String text) {
     for (final m in re.allMatches(text))
       Partition(m.group(1)!, int.tryParse(m.group(2)!)),
   ];
-}
-
-/// Facts the place must have for [s], used by the service as a guard.
-void checkAvailable(PartitionStrategy s, Facts facts) {
-  final a = s.available(facts);
-  if (!a.ok) throw StateError('${s.label}: ${a.reason}');
 }

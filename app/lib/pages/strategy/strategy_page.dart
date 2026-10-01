@@ -16,7 +16,7 @@ class StrategyPage extends StatefulWidget {
 }
 
 class _StrategyPageState extends State<StrategyPage> {
-  List<Place>? _places;
+  List<DemoPlace>? _places;
   final _reports = <String, PlaceReport>{};
   String? _placeId;
   final _masked = <String>{};
@@ -35,7 +35,7 @@ class _StrategyPageState extends State<StrategyPage> {
 
   @override
   void dispose() {
-    for (final p in _places ?? const <Place>[]) {
+    for (final p in _places ?? const <DemoPlace>[]) {
       p.stop();
     }
     super.dispose();
@@ -52,9 +52,12 @@ class _StrategyPageState extends State<StrategyPage> {
     }
   }
 
-  Place? get _place => _places?.where((p) => p.id == _placeId).firstOrNull;
+  DemoPlace? get _place => _places?.where((p) => p.id == _placeId).firstOrNull;
 
-  Facts? get _facts => _reports[_placeId]?.facts.mask(_masked);
+  PlaceFacts? get _facts {
+    final f = _reports[_placeId]?.facts;
+    return f == null ? null : withoutFacts(f, _masked);
+  }
 
   Future<void> _run(PartitionStrategy s) async {
     final place = _place!;
@@ -103,7 +106,7 @@ class _StrategyPageState extends State<StrategyPage> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final p in _places ?? const <Place>[])
+              for (final p in _places ?? const <DemoPlace>[])
                 ChoiceChip(
                   label: Text(p.label),
                   selected: p.id == _placeId,
@@ -120,7 +123,7 @@ class _StrategyPageState extends State<StrategyPage> {
         ),
         if (facts != null)
           Section(
-            title: 'Facts from ${facts.runtime}',
+            title: 'Facts from ${_place!.label}',
             subtitle: 'Switch a fact off to see the fallback. You can only take facts away.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,7 +145,7 @@ class _StrategyPageState extends State<StrategyPage> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                FactsView(facts: facts, needed: needed),
+                FactsView(facts: facts, needed: needed, off: _masked),
               ],
             ),
           ),

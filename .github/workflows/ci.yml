@@ -14,6 +14,8 @@ jobs:
         with:
           flutter-version: 3.47.5
           channel: stable
+      # squadron_process + its patched Squadron (pubspec_overrides.yaml).
+      - run: tool/deps.sh
       - run: flutter pub get
       # Squadron's generated workers are committed; fail if they are stale.
       - run: dart run build_runner build --delete-conflicting-outputs
