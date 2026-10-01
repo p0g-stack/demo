@@ -102,7 +102,7 @@ jobs:
     permissions:
       contents: write # the module branch
     env:
-      FLUTTER_P0G_REF: e8ba65cae708dea25577b0e640901006107187be
+      FLUTTER_P0G_REF: 0feaa96bf31b0679c24bdf4e6a4e9bec519830e0
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
