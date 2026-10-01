@@ -24,7 +24,7 @@ Built with `flutter_p0g build webui` / `aera` and plain `flutter build web`.
 | 5 | Shell basics | insets, keyboard, back and exit, light and dark through Flutter's own APIs; what this host gives for each and what every known manager gives (flutter_webui_client's fake hosts), with the fallback | runs |
 | 6 | Plugins | pick, save, share, URL, clipboard through `webui-packages` | stub: each plugin says "unavailable here" until webui-packages ships it |
 
-The workspace is exactly what the `p0g_app` brick (bricks @ 7b965aa, 0.6.4,
+The workspace is exactly what the `p0g_app` brick (bricks @ bb0b190, 0.6.5,
 with `rust`) generates, plus the pages (`app/lib/pages/`, opened from a panel on the
 brick's home), the demo's core (`DemoService`, the `partitions` objective,
 the page places, the Rust loader), the crate's `demo` module and two CLI
