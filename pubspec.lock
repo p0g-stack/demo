@@ -49,6 +49,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.0.11"
+  build_cli_annotations:
+    dependency: transitive
+    description:
+      name: build_cli_annotations
+      sha256: e563c2e01de8974566a1998410d3f6f03521788160a02503b0b1f1a46c7b3d95
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.1"
   build_config:
     dependency: transitive
     description:
@@ -206,6 +214,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
+  flutter_rust_bridge:
+    dependency: transitive
+    description:
+      path: frb_dart
+      ref: "848e438c561491adcc16cbf8b33bb61e541bd475"
+      resolved-ref: "848e438c561491adcc16cbf8b33bb61e541bd475"
+      url: "https://github.com/fzyzcjy/flutter_rust_bridge"
+    source: git
+    version: "2.14.0-beta.2"
   flutter_test:
     dependency: transitive
     description: flutter

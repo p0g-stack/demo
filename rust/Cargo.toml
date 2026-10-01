@@ -1,0 +1,18 @@
+[package]
+name = "demo_native"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# A library only: the app's Dart CLI is its one command line, and it calls
+# this crate through frb. Never add a [[bin]] target.
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+# Must match the Dart package version in core/pubspec.yaml. flutter_p0g
+# applies its frb patch series (single-threaded web) on top of this pin.
+flutter_rust_bridge = { version = "=2.14.0-beta.2", default-features = false, features = [
+    # frb's defaults without thread-pool: single-threaded wasm (no COOP/COEP).
+    "anyhow", "dart-opaque", "log", "portable-atomic", "rust-async", "user-utils", "wasm-start",
+] }

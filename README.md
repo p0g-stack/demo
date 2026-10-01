@@ -19,17 +19,18 @@ Built with `flutter_p0g build webui` / `aera` and plain `flutter build web`.
 |---|---|---|---|
 | 1 | Places | `DemoService` inline, in a Squadron worker (isolate / Web Worker) and in the root process; start and call timings, frames drawn during CPU work, and each place's own facts | inline, worker and root process run (the root process through `squadron_process`; on WebUI it waits for the brick's launcher) |
 | 2 | Strategy | list partitions on the device as root, or from a host with `fastboot`, picked by `available(facts)`; facts can be switched off to see the fallback; every run is logged as a StrategyRun | runs |
-| 3 | Rust | a crate through patched frb, native and wasm in a worker | next |
+| 3 | Rust | the demo crate (`rust/`) through flutter_p0g's patched frb in every place: single-threaded wasm in the page and in a Web Worker, native in an isolate and the root process; what each copy was built for, its load time, Rust against Dart; the Dart version where the crate can't load | runs on plain web (Web Workers need the frb worker patch, which flutter_p0g carries as 0003) |
 | 4 | Lifecycle | a five-minute task: hidden keeps going (ticks stamped by the place's clock), closed stops (the next start reports where it ended) | runs |
-| 5 | Shell basics | insets, keyboard, back and exit at root, light and dark | next |
-| 6 | Plugins | pick, save, share, URL, clipboard through `webui-packages` | next |
+| 5 | Shell basics | insets, keyboard, back and exit, light and dark through Flutter's own APIs; what this host gives for each and what every known manager gives (flutter_webui_client's fake hosts), with the fallback | runs |
+| 6 | Plugins | pick, save, share, URL, clipboard through `webui-packages` | stub: each plugin says "unavailable here" until webui-packages ships it |
 
-The workspace is exactly what the `p0g_app` brick (bricks @ 6d3e56a, 0.2.0)
-generates, plus the pages (`app/lib/pages/`, opened from a panel on the
+The workspace is exactly what the `p0g_app` brick (bricks @ f835a99, 0.4.0,
+with `rust`) generates, plus the pages (`app/lib/pages/`, opened from a panel on the
 brick's home), the demo's core (`DemoService`, the `partitions` objective,
-the page places) and two CLI commands. The only edits to generated files are
-insertions at the brick's `// p0g:` markers; `tool/regen.sh` regenerates the
-workspace in CI and fails on anything else (`tool/regen.allow`).
+the page places, the Rust loader), the crate's `demo` module and two CLI
+commands. Edits to generated files are insertions at the brick's `// p0g:`
+markers plus the few listed with a reason in `tool/regen.allow`;
+`tool/regen.sh` regenerates the workspace in CI and fails on anything else.
 
 The root process comes from the brick's `Places`: `P0G_CLI` on a desktop,
 flutter-webui's root channel on WebUI. For development on plain web, point a
@@ -41,6 +42,7 @@ Pinned Flutter 3.47.5.
 
 ```sh
 PLATFORMS=web bash tool/bootstrap.sh      # patched Squadron, codegen, web/, web workers, format
+flutter_p0g precache --frb && bash tool/rust.sh   # page 3: bindings, native lib, wasm
 (cd app && flutter run -d chrome)         # plain web
 (cd app && flutter build web --release --no-web-resources-cdn)
 dart run cli/bin/demo.dart facts          # what the CLI's own process can do

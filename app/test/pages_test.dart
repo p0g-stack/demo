@@ -3,6 +3,7 @@ import 'package:demo/pages/lifecycle/lifecycle_page.dart';
 import 'package:demo/pages/lifecycle/run_store.dart';
 import 'package:demo/pages/pages.dart';
 import 'package:demo/pages/places/places_page.dart';
+import 'package:demo/pages/rust/rust_page.dart';
 import 'package:demo/pages/strategy/strategy_page.dart';
 import 'package:demo_core/demo_core.dart';
 import 'package:flutter/material.dart';
@@ -23,13 +24,31 @@ base class FakeService extends DemoService {
   };
 
   @override
+  Future<Map<String, dynamic>> rustCrunch(int n) async => {
+    'target': 'wasm32-unknown (single-threaded)',
+    'from': 'pkg/demo_native_bg.wasm',
+    'initMs': 3,
+    'count': 1,
+    'ms': 1,
+  };
+
+  @override
   Stream<Map<String, dynamic>> ticks(int count, int intervalMs) =>
       const Stream.empty();
 }
 
+/// A place where the crate did not load.
+base class NoRustService extends FakeService {
+  @override
+  Future<Map<String, dynamic>> rustCrunch(int n) async => {
+    'error': 'libdemo_native.so not found',
+  };
+}
+
 /// A place that answers from fixed facts.
 final class FakePlace extends DemoPlace {
-  FakePlace(this.id, this.have);
+  FakePlace(this.id, this.have, [DemoService? service])
+    : service = service ?? FakeService();
 
   @override
   final String id;
@@ -39,7 +58,7 @@ final class FakePlace extends DemoPlace {
   @override
   String get kind => 'fake';
   @override
-  final DemoService service = FakeService();
+  final DemoService service;
 
   @override
   Future<PlaceFacts> facts() async =>
@@ -156,5 +175,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Last time: closed mid-task'), findsOneWidget);
     expect(find.textContaining('reached tick 37 of 600'), findsOneWidget);
+  });
+
+  testWidgets('Rust shows the build per place and falls back to Dart', (
+    tester,
+  ) async {
+    tall(tester);
+    await tester.pumpWidget(
+      host(
+        const RustPage(),
+        () => [
+          FakePlace('worker', {}),
+          FakePlace('process', {}, NoRustService()),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run in every place'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Built for: wasm32-unknown (single-threaded)'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('The crate did not load here: libdemo_native.so'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('The Dart version ran instead: 2 ms'),
+      findsOneWidget,
+    );
   });
 }

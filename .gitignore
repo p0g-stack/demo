@@ -6,4 +6,5 @@ pubspec_overrides.yaml
 # Squadron codegen and compiled workers; tool/bootstrap.sh regenerates them.
 *.g.dart
 app/web/workers/
+rust/target/
 

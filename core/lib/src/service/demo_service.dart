@@ -4,6 +4,7 @@ import 'package:logging/logging.dart';
 import 'package:squadron/squadron.dart';
 
 import '../facts/facts.dart';
+import '../native/native.dart';
 import '../tasks/partitions.dart';
 import 'demo_service.activator.g.dart';
 
@@ -37,6 +38,31 @@ base class DemoService {
     }
     _log.fine('crunch($n) = $count');
     return {'count': count, 'ms': sw.elapsedMilliseconds};
+  }
+
+  /// The same work as [crunch] in the demo crate (`rust/`), loaded in this
+  /// place: native code on the VM, wasm in a browser or Web Worker. Returns
+  /// what the crate was built for and its times, or `error` when it cannot
+  /// load here.
+  @squadronMethod
+  Future<Map<String, dynamic>> rustCrunch(int n) async {
+    final Native native;
+    try {
+      native = await Native.load();
+    } catch (e) {
+      _log.warning('demo crate did not load: $e');
+      return {'error': '$e'};
+    }
+    final sw = Stopwatch()..start();
+    final count = native.countPrimes(n);
+    _log.fine('rustCrunch($n) = $count on ${native.target}');
+    return {
+      'target': native.target,
+      'from': native.from,
+      'initMs': native.initMs,
+      'count': count,
+      'ms': sw.elapsedMilliseconds,
+    };
   }
 
   /// A long task: [count] ticks, one every [intervalMs]. Each tick carries
