@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # the native-android branch
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -75,3 +77,18 @@ jobs:
         with:
           name: demo-native-android
           path: build/native-android
+      # The same libraries on a branch, since Actions artifacts can't be
+      # fetched from everywhere; one commit, replaced on each push to main.
+      - name: Publish native-android branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          src="$GITHUB_SHA"
+          cd build/native-android
+          sha256sum */libdemo_native.so > SHA256SUMS
+          echo "# built from p0g-stack/demo $src" >> SHA256SUMS
+          git init -q -b native-android
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git add -A
+          git commit -q -m "libdemo_native.so for Android from $src"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" native-android
