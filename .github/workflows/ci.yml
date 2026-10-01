@@ -174,8 +174,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: v${{ steps.version.outputs.name }}
+        # The tag goes up with git: the releases API refuses this token a
+        # tag it creates itself (HTTP 403), while a pushed tag is fine.
         run: |
+          git tag "$TAG" "$GITHUB_SHA"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" "refs/tags/$TAG"
           cd app/build/webui
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "demo $TAG" --notes-file changelog.md --latest \
             *.zip update.json changelog.md
