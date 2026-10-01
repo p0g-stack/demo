@@ -59,7 +59,8 @@ final class SquadronPlace extends DemoPlace {
   String get kind => place.kind;
 
   @override
-  DemoServiceWorker get service => _worker ??= place.bind(DemoServiceWorker());
+  DemoServiceWorker get service =>
+      _worker ??= place.bind(DemoServiceWorker(), service: 'demo');
 
   @override
   Future<void> start() => service.start();

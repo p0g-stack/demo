@@ -39,14 +39,14 @@ class DemoScope extends InheritedWidget {
 /// desktop, flutter-webui's root channel on WebUI).
 ///
 /// For development on plain web, where there is no launcher, a page can be
-/// pointed at a running `demo serve demo`: `?place=<port>&token=<token>`.
+/// pointed at a running `demo serve`: `?place=<port>&token=<token>`.
 List<DemoPlace> pagePlaces(Places places) {
   final q = Uri.base.queryParameters;
   final port = int.tryParse(q['place'] ?? '');
   final token = q['token'];
   return demoPlaces(
     process:
-        places.process('demo') ??
+        places.process ??
         (port != null && token != null
             ? ProcessPlace(
                 endpoint: ProcessEndpoint(port: port, token: token),
@@ -54,7 +54,7 @@ List<DemoPlace> pagePlaces(Places places) {
             : null),
     missingReason:
         'no launcher here (P0G_CLI on a desktop, the root channel on WebUI); '
-        'for development, run `demo serve demo` and open '
+        'for development, run `demo serve` and open '
         '?place=<port>&token=<token>',
   );
 }

@@ -33,7 +33,7 @@ workspace in CI and fails on anything else (`tool/regen.allow`).
 
 The root process comes from the brick's `Places`: `P0G_CLI` on a desktop,
 flutter-webui's root channel on WebUI. For development on plain web, point a
-page at a running `demo serve demo`: `?place=<port>&token=<token>`.
+page at a running `demo serve`: `?place=<port>&token=<token>`.
 
 ## Run
 
@@ -45,7 +45,7 @@ PLATFORMS=web bash tool/bootstrap.sh      # patched Squadron, codegen, web/, web
 (cd app && flutter build web --release --no-web-resources-cdn)
 dart run cli/bin/demo.dart facts          # what the CLI's own process can do
 dart run cli/bin/demo.dart partitions     # the Strategy page's objective, from the CLI
-dart run cli/bin/demo.dart serve demo     # root process; first line {"squadron_process":1,"port":..,"token":..}
+dart run cli/bin/demo.dart serve          # root process; first line {"squadron_process":1,"port":..,"token":..}
 tool/regen.sh                             # still what p0g_app generates? (needs mason)
 ```
 

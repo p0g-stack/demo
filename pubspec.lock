@@ -467,7 +467,7 @@ packages:
   squadron:
     dependency: "direct overridden"
     description:
-      path: ".p0g/squadron_process/third_party/squadron/src"
+      path: ".dart_tool/squadron_process/squadron-4ab7f15a5d6d"
       relative: true
     source: path
     version: "7.4.4"
@@ -480,11 +480,13 @@ packages:
     source: hosted
     version: "9.3.2"
   squadron_process:
-    dependency: "direct overridden"
+    dependency: transitive
     description:
-      path: ".p0g/squadron_process"
-      relative: true
-    source: path
+      path: "."
+      ref: "52ee2f66b0928dbcb2a33a39a04d9f7e72f697f8"
+      resolved-ref: "52ee2f66b0928dbcb2a33a39a04d9f7e72f697f8"
+      url: "https://github.com/p0g-stack/squadron_process"
+    source: git
     version: "0.1.0"
   stack_trace:
     dependency: transitive
@@ -631,5 +633,5 @@ packages:
     source: hosted
     version: "3.1.4"
 sdks:
-  dart: ">=3.13.0 <4.0.0"
+  dart: ">=3.13.4 <4.0.0"
   flutter: ">=3.18.0-18.0.pre.54"

@@ -24,7 +24,9 @@ void main() {
   });
 
   test('a process place runs the same service over serve mode', () async {
-    final served = await startServe(DemoServiceWorker(), facts: checkFacts);
+    final served = await startServe({
+      'demo': DemoServiceWorker(),
+    }, facts: checkFacts);
     addTearDown(served.close);
     final place = SquadronPlace(
       'process',
