@@ -176,6 +176,43 @@ void main() {
     expect(find.textContaining('reached tick 37 of 600'), findsOneWidget);
   });
 
+  testWidgets('Lifecycle runs the task in the root process when there is one', (
+    tester,
+  ) async {
+    tall(tester);
+    await tester.pumpWidget(
+      host(
+        LifecyclePage(store: MemoryRunStore(null)),
+        () => [
+          FakePlace('inline', const {}),
+          FakePlace('worker', const {}),
+          FakePlace('process', const {}),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    final chip = tester.widget<ChoiceChip>(
+      find.widgetWithText(ChoiceChip, 'fake process'),
+    );
+    expect(chip.selected, isTrue);
+    expect(find.textContaining('can pause a Web Worker'), findsNothing);
+  });
+
+  testWidgets(
+    'Lifecycle says a worker may pause when there is no root process',
+    (tester) async {
+      tall(tester);
+      await tester.pumpWidget(
+        host(
+          LifecyclePage(store: MemoryRunStore(null)),
+          () => [FakePlace('inline', const {}), FakePlace('worker', const {})],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('can pause a Web Worker'), findsOneWidget);
+    },
+  );
+
   testWidgets('Rust shows the build per place and falls back to Dart', (
     tester,
   ) async {

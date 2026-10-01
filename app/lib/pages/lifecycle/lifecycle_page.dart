@@ -82,11 +82,19 @@ class _LifecyclePageState extends State<LifecyclePage> {
       if (!mounted) return;
       setState(() {
         _reports[p.id] = r;
-        // Default to the worker: it is the place that keeps going.
-        if (r.ok && (_placeId == null || p.id == 'worker')) _placeId = p.id;
+        // Default to the place most likely to keep going while hidden: the
+        // root process (its own OS process), then the worker, then inline.
+        if (r.ok && _rank(p.id) > _rank(_placeId)) _placeId = p.id;
       });
     }
   }
+
+  static int _rank(String? id) => switch (id) {
+    'process' => 3,
+    'worker' => 2,
+    'inline' => 1,
+    _ => 0,
+  };
 
   String _clock(DateTime t) => t.toIso8601String().substring(11, 19);
 
@@ -229,6 +237,12 @@ class _LifecyclePageState extends State<LifecyclePage> {
                 ],
               ),
               const SizedBox(height: 8),
+              if (_placeId == 'worker' && _reports['process']?.ok != true)
+                const Fallback(
+                  'No root process here, so the worker runs it. A manager '
+                  'WebView (WebUI X) can pause a Web Worker while the page is '
+                  'hidden; long tasks belong in the root process on WebUI.',
+                ),
               if (_placeId == 'inline')
                 const Fallback(
                   'Inline runs on the page\'s own timers, which a hidden browser tab '
