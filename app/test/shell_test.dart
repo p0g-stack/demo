@@ -77,13 +77,54 @@ void main() {
     expect(find.textContaining('Still here'), findsOneWidget);
   });
 
-  testWidgets('the plugins page says every plugin is unavailable here', (
+  testWidgets('the plugins page shares text and requests the camera', (
     tester,
   ) async {
-    await pump(tester, const PluginsPage());
+    final shared = <String>[];
+    var camera = 'denied';
+    final calls = PluginCalls(
+      share: (text) async {
+        shared.add(text);
+        return 'success';
+      },
+      cameraStatus: () async => camera,
+      requestCamera: () async => camera = 'granted',
+    );
+    await pump(
+      tester,
+      PluginsPage(host: WebUiHost.detect(FakeBridge.webuix()), calls: calls),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Camera: denied'), findsOneWidget);
+    expect(find.textContaining('On WebUI: share_plus_webui'), findsOneWidget);
+
+    await tester.tap(find.text('Share text'));
+    await tester.pumpAndSettle();
+    expect(shared, hasLength(1));
+    expect(find.text('Share result: success'), findsOneWidget);
+
+    await tester.tap(find.text('Request camera'));
+    await tester.pumpAndSettle();
+    expect(find.text('Camera: granted'), findsOneWidget);
+  });
+
+  testWidgets('the plugins page reports a plugin that throws', (tester) async {
+    final calls = PluginCalls(
+      share: (_) async => throw StateError('no share sheet'),
+      cameraStatus: () async => 'denied',
+      requestCamera: () async => 'denied',
+    );
+    await pump(
+      tester,
+      PluginsPage(host: WebUiHost.detect(FakeBridge.browser()), calls: calls),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Here: the Web Share API'), findsOneWidget);
+    await tester.tap(find.text('Share text'));
+    await tester.pumpAndSettle();
     expect(
-      find.textContaining('Unavailable here'),
-      findsNWidgets(plannedPlugins.length),
+      find.textContaining('failed: Bad state: no share sheet'),
+      findsOneWidget,
     );
   });
 }

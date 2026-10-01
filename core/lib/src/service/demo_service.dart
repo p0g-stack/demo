@@ -4,6 +4,7 @@ import 'package:logging/logging.dart';
 import 'package:squadron/squadron.dart';
 
 import '../facts/facts.dart';
+import '../log.dart';
 import '../native/native.dart';
 import '../rust/api/demo.dart' as rust;
 import '../tasks/partitions.dart';
@@ -20,6 +21,11 @@ part 'demo_service.worker.g.dart';
 )
 base class DemoService {
   static final _log = Logger('service.demo');
+
+  /// Runs where the service runs: its logs reach the caller's sink.
+  DemoService() {
+    forwardLogs();
+  }
 
   /// CPU work: counts the primes below [n] by trial division.
   /// Returns the count and the milliseconds spent inside the place.

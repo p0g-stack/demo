@@ -1,6 +1,7 @@
 import 'package:squadron_process/squadron_process.dart' as sp;
 
 import '../facts/facts.dart';
+import '../log.dart';
 
 import '../service/demo_service.dart';
 
@@ -60,7 +61,7 @@ final class SquadronPlace extends DemoPlace {
 
   @override
   DemoServiceWorker get service =>
-      _worker ??= place.bind(DemoServiceWorker(), service: 'demo');
+      _worker ??= place.bind(withLogs(DemoServiceWorker()), service: 'demo');
 
   @override
   Future<void> start() => service.start();

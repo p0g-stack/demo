@@ -21,8 +21,11 @@ dependencies:
     git:
       url: https://github.com/p0g-stack/flutter-webui
       path: packages/flutter_webui_client
-      ref: 9c5c6318f4ec4d878d90a0def5ee0f514fcd6591
+      ref: bebb1ecec89f25611bb2139458d8049576ff1c25
   demo_core: any
+  # Page 6 (Plugins); on WebUI flutter_p0g adds their *_webui packages.
+  permission_handler: ^13.0.2
+  share_plus: ^13.3.0
 
 dev_dependencies:
   flutter_lints: ^6.0.0

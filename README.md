@@ -24,12 +24,13 @@ Built with `flutter_p0g build webui` / `aera` and plain `flutter build web`.
 | 5 | Shell basics | insets, keyboard, back and exit, light and dark through Flutter's own APIs; what this host gives for each and what every known manager gives (flutter_webui_client's fake hosts), with the fallback | runs |
 | 6 | Plugins | pick, save, share, URL, clipboard through `webui-packages` | stub: each plugin says "unavailable here" until webui-packages ships it |
 
-The workspace is exactly what the `p0g_app` brick (bricks @ 676404a, 0.7.4,
+The workspace is exactly what the `p0g_app` brick (bricks @ 1ec0cd9, 0.8.0,
 with `rust`) generates, plus the pages (`app/lib/pages/`, opened from a panel on the
 brick's home), the demo's core (`DemoService`, the `partitions` objective,
 the page places, the Rust loader), the crate's `demo` module and two CLI
 commands. Edits to generated files are insertions at the brick's `// p0g:`
-markers plus the few listed with a reason in `tool/regen.allow`;
+markers plus the few listed with a reason in `tool/regen.allow`, and lines
+added (never changed) in the files listed in `tool/regen.add`;
 `tool/regen.sh` regenerates the workspace in CI and fails on anything else.
 
 The root process comes from the brick's `Places`: `P0G_CLI` on a desktop,
