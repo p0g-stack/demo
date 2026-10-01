@@ -768,8 +768,8 @@ packages:
     dependency: transitive
     description:
       path: "."
-      ref: d6c561bc60a72556fc6fa83bb90871fe8c978a4e
-      resolved-ref: d6c561bc60a72556fc6fa83bb90871fe8c978a4e
+      ref: "5d41a990abd60df81fcc4d7cd4841bd146e3f5d2"
+      resolved-ref: "5d41a990abd60df81fcc4d7cd4841bd146e3f5d2"
       url: "https://github.com/p0g-stack/squadron_process"
     source: git
     version: "0.1.0"
