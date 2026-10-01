@@ -57,3 +57,21 @@ jobs:
         with:
           name: demo-web
           path: app/build/web
+      # The crate for the root process on Android, for flutter_p0g to pack
+      # beside the CLI as bin/<abi>/libdemo_native.so.
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r27c
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+      - run: rustup target add aarch64-linux-android x86_64-linux-android
+      - run: cargo ndk -t arm64-v8a -t x86_64 -o "$PWD/../build/native-android" build --release
+        working-directory: rust
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: demo-native-android
+          path: build/native-android
