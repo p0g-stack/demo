@@ -36,5 +36,7 @@ void main() {
     expect(await worker.hello('process'), 'Hello, process!');
     expect(await worker.count(3).toList(), [1, 2, 3]);
     expect((await place.facts())[Fact.processSpawn], isA<bool>());
+    // The serve process loads rust/target's library for itself.
+    expect((await worker.sha256('abc'))['strategy'], 'rust_sha2');
   }, timeout: const Timeout(Duration(minutes: 3)));
 }

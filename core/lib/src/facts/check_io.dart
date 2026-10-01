@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../native/native.dart';
 import 'facts.dart';
 
 /// Checks the facts of the current Dart VM process.
@@ -16,6 +17,7 @@ Future<Map<String, Object?>> checkFacts() async {
     Fact.processSpawn: await _canSpawn(),
     Fact.fsPersistent: await _canWriteWorkingDir(),
     Fact.net: await _hasNetwork(),
+    Fact.native: await loadNative(),
   };
 }
 

@@ -31,6 +31,9 @@ abstract final class Fact {
   /// The place has a network interface other than loopback that is up.
   static const net = 'net';
 
+  /// The app's Rust library (`rust/`) is loaded in this place.
+  static const native = 'native';
+
   static const all = [
     root,
     blockDevices,
@@ -39,6 +42,7 @@ abstract final class Fact {
     processSpawn,
     fsPersistent,
     net,
+    native,
   ];
 }
 

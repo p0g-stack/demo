@@ -3,16 +3,15 @@ import 'dart:js_interop_unsafe';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-/// The wasm is built into the app's `web/pkg/` (tool/rust.sh). A page
-/// resolves `pkg/` against its base href; a Squadron Web Worker lives in
-/// `workers/` beside it and resolves against its own script URL. Loading in
-/// a worker needs flutter_p0g's frb patch for workers.
-ExternalLibraryLoaderConfig loaderConfig(ExternalLibraryLoaderConfig base) =>
-    ExternalLibraryLoaderConfig(
-      stem: base.stem,
-      ioDirectory: base.ioDirectory,
-      webPrefix: globalContext.has('document') ? 'pkg/' : '../pkg/',
+/// Web: frb's own loader fetches `pkg/<stem>.js` and its wasm, which
+/// `flutter_p0g build webui` builds single-threaded (no COOP/COEP needed).
+/// A page resolves `pkg/` against its base href; a Squadron Web Worker
+/// resolves against its own script, which lives in `workers/` beside it.
+Future<ExternalLibrary?> openNativeLibrary(String stem) async =>
+    loadExternalLibrary(
+      ExternalLibraryLoaderConfig(
+        stem: stem,
+        ioDirectory: null,
+        webPrefix: globalContext.has('document') ? 'pkg/' : '../pkg/',
+      ),
     );
-
-String describe(ExternalLibraryLoaderConfig config) =>
-    '${config.webPrefix}${config.stem}_bg.wasm';

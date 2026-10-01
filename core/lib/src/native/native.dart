@@ -1,51 +1,31 @@
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'dart:async';
 
-import '../rust/api/demo.dart' as rust;
 import '../rust/frb_generated.dart';
 import 'native_stub.dart'
     if (dart.library.io) 'native_io.dart'
     if (dart.library.js_interop) 'native_web.dart'
-    as impl;
+    as platform;
 
-/// The demo crate (`rust/`) as loaded in this isolate or Web Worker: native
-/// code on the VM, single-threaded wasm on the web.
-final class Native {
-  const Native._(this.target, this.from, this.initMs);
+export '../rust/api/digest.dart' show sha256Hex;
 
-  /// What the crate says it was compiled for (`x86_64-linux`,
-  /// `wasm32-unknown (single-threaded)`).
-  final String target;
+/// Loads the app's Rust library (`rust/`, through flutter_rust_bridge) into
+/// this isolate or Web Worker, once. True when its functions can be called.
+///
+/// Each place loads it for itself: a Squadron isolate, a Web Worker and the
+/// CLI's `serve` process each have their own copy. Whether it loaded is the
+/// `native` fact, so strategies that call Rust say `requires {Fact.native}`
+/// and a place without the library picks another strategy.
+Future<bool> loadNative() => _loaded ??= _load();
 
-  /// Where the library came from (a file, or the wasm prefix).
-  final String from;
+Future<bool>? _loaded;
 
-  /// Time to load and initialise it here.
-  final int initMs;
-
-  static Future<Native>? _loading;
-
-  /// Loads the crate once per isolate or worker. A failure is not cached, so
-  /// a later call tries again (after `tool/rust.sh`, say).
-  static Future<Native> load() =>
-      _loading ??= _load().catchError((Object e, StackTrace s) {
-        _loading = null;
-        Error.throwWithStackTrace(e, s);
-      });
-
-  static Future<Native> _load() async {
-    final sw = Stopwatch()..start();
-    final config = impl.loaderConfig(
-      RustLib.kDefaultExternalLibraryLoaderConfig,
-    );
-    final lib = await loadExternalLibrary(config);
-    await RustLib.init(externalLibrary: lib);
-    return Native._(
-      rust.buildTarget(),
-      impl.describe(config),
-      sw.elapsedMilliseconds,
-    );
+Future<bool> _load() async {
+  try {
+    final library = await platform.openNativeLibrary('demo_native');
+    await RustLib.init(externalLibrary: library)
+        .timeout(const Duration(seconds: 5));
+    return true;
+  } on Object {
+    return false;
   }
-
-  /// [rust.countPrimes] once loaded.
-  int countPrimes(int n) => rust.countPrimes(n: n);
 }

@@ -14,6 +14,26 @@ jobs:
         with:
           flutter-version: 3.47.5
           channel: stable
+      # tool/rust.sh (run by bootstrap) needs frb codegen at flutter_p0g's
+      # base commit. Without flutter_p0g's patched frb (a private repo) it
+      # builds the native library only; the web build falls back to Dart.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-expand
+      - uses: actions/cache@v4
+        id: frb
+        with:
+          path: ~/.frb-codegen
+          key: frb-codegen-848e438c561491adcc16cbf8b33bb61e541bd475
+      - name: frb codegen
+        if: steps.frb.outputs.cache-hit != 'true'
+        run: >
+          cargo install --locked --root ~/.frb-codegen
+          --git https://github.com/fzyzcjy/flutter_rust_bridge
+          --rev 848e438c561491adcc16cbf8b33bb61e541bd475
+          flutter_rust_bridge_codegen
+      - run: echo "$HOME/.frb-codegen/bin" >> "$GITHUB_PATH"
       # The workspace must still be what p0g_app generates (tool/regen.allow).
       - run: dart pub global activate mason_cli 0.1.4
       - run: tool/regen.sh
@@ -21,7 +41,8 @@ jobs:
       - run: bash tool/bootstrap.sh
         env:
           PLATFORMS: web
-      - run: git diff --exit-code
+      # Cargo.lock records where frb was patched from (a local path or git).
+      - run: git diff --exit-code -- . ':!rust/Cargo.lock'
       - run: dart analyze --fatal-infos
       - run: dart test
         working-directory: core

@@ -68,7 +68,7 @@ class _RustPageState extends State<RustPage> {
         rust.containsKey('error')
             ? 'rust in ${place.id}: not loaded (${rust['error']}); dart ${dart['ms']} ms'
             : 'rust in ${place.id} on ${rust['target']}: ${rust['ms']} ms, '
-                  'dart ${dart['ms']} ms, init ${rust['initMs']} ms',
+                  'dart ${dart['ms']} ms, load ${rust['loadMs']} ms',
       );
     } catch (e) {
       result = _Result(error: '$e');
@@ -148,7 +148,10 @@ class _RustPageState extends State<RustPage> {
               )
             else if (rust != null) ...[
               Text('Built for: ${rust['target']}'),
-              Text('Loaded from: ${rust['from']} in ${rust['initMs']} ms'),
+              Text(
+                'Load: ${rust['loadMs']} ms (the place loads it once, when it '
+                'first checks its facts)',
+              ),
               Text(
                 'Rust ${rust['ms']} ms, Dart ${dart?['ms']} ms '
                 '(${rust['count'] == dart?['count'] ? 'same count' : 'counts differ'}: ${rust['count']})',

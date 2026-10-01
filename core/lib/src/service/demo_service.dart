@@ -5,6 +5,7 @@ import 'package:squadron/squadron.dart';
 
 import '../facts/facts.dart';
 import '../native/native.dart';
+import '../rust/api/demo.dart' as rust;
 import '../tasks/partitions.dart';
 import 'demo_service.activator.g.dart';
 
@@ -41,25 +42,28 @@ base class DemoService {
   }
 
   /// The same work as [crunch] in the demo crate (`rust/`), loaded in this
-  /// place: native code on the VM, wasm in a browser or Web Worker. Returns
-  /// what the crate was built for and its times, or `error` when it cannot
-  /// load here.
+  /// place by the brick's [loadNative]: native code on the VM, wasm in a
+  /// browser or Web Worker. Returns what the crate was built for and its
+  /// times, or `error` when it cannot load here (the `native` fact is false).
   @squadronMethod
   Future<Map<String, dynamic>> rustCrunch(int n) async {
-    final Native native;
-    try {
-      native = await Native.load();
-    } catch (e) {
-      _log.warning('demo crate did not load: $e');
-      return {'error': '$e'};
+    final load = Stopwatch()..start();
+    if (!await loadNative()) {
+      _log.warning('demo crate did not load here');
+      return {
+        'error':
+            'the demo crate did not load in this place (native fact false; '
+            'build it with tool/rust.sh)',
+      };
     }
+    final loadMs = load.elapsedMilliseconds;
     final sw = Stopwatch()..start();
-    final count = native.countPrimes(n);
-    _log.fine('rustCrunch($n) = $count on ${native.target}');
+    final count = rust.countPrimes(n: n);
+    final target = rust.buildTarget();
+    _log.fine('rustCrunch($n) = $count on $target');
     return {
-      'target': native.target,
-      'from': native.from,
-      'initMs': native.initMs,
+      'target': target,
+      'loadMs': loadMs,
       'count': count,
       'ms': sw.elapsedMilliseconds,
     };

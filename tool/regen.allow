@@ -6,8 +6,5 @@ core/lib/demo_core.dart                   # exports at p0g:exports
 cli/lib/src/runner.dart                   # crunch, partitions at p0g:imports / p0g:commands
 cli/lib/src/commands/serve_command.dart   # 'demo' at p0g:services
 app/lib/panels/panels.dart                # PagesPanel at p0g:imports / p0g:panels
-core/pubspec.yaml                         # frb_dart at 848e438 (flutter_p0g's base): the brick's 2.14.0-beta.2 can't run the bindings its codegen writes
-flutter_rust_bridge.yaml                  # auto_upgrade_dependency: false, or codegen rewrites core/pubspec.yaml to a local path
-rust/Cargo.toml                           # frb without thread-pool, for single-threaded wasm
-rust/src/lib.rs                           # `mod frb_generated;` after the doc comment; codegen's injected line above it doesn't compile
 rust/src/api/mod.rs                       # `pub mod demo;` (no p0g: marker here)
+core/lib/src/native/native_web.dart        # a Web Worker resolves pkg/ against workers/, so it loads ../pkg/ (bricks told)

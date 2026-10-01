@@ -9,6 +9,8 @@ cd "$(dirname "$0")/.."
 flutter pub get
 (cd cli && dart run squadron_process:squadron_patch ..)
 flutter pub get
+bash tool/rust.sh
+
 (cd core && dart run build_runner build --delete-conflicting-outputs)
 
 # Stock platform folders; `flutter_p0g create .` adds webui/ and aera/.

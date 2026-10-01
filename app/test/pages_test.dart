@@ -26,8 +26,7 @@ base class FakeService extends DemoService {
   @override
   Future<Map<String, dynamic>> rustCrunch(int n) async => {
     'target': 'wasm32-unknown (single-threaded)',
-    'from': 'pkg/demo_native_bg.wasm',
-    'initMs': 3,
+    'loadMs': 3,
     'count': 1,
     'ms': 1,
   };

@@ -46,6 +46,7 @@ class _HelloPanelState extends State<HelloPanel> {
   late final Future<Facts> _facts = widget.facts();
   final _who = TextEditingController(text: 'world');
   String? _greeting;
+  String? _digest;
   final _counted = <int>[];
   StreamSubscription<int>? _count;
 
@@ -57,6 +58,18 @@ class _HelloPanelState extends State<HelloPanel> {
     } catch (e) {
       _log.warning('hello failed in ${widget.kind}', e);
       if (mounted) setState(() => _greeting = '$e');
+    }
+  }
+
+  Future<void> _hash() async {
+    try {
+      final r = await _service.sha256(_who.text);
+      _log.info('digest ran ${r['strategy']} in ${widget.kind}');
+      final line = '${r['sha256']} (${r['strategy']})';
+      if (mounted) setState(() => _digest = line);
+    } catch (e) {
+      _log.warning('digest failed in ${widget.kind}', e);
+      if (mounted) setState(() => _digest = '$e');
     }
   }
 
@@ -104,10 +117,12 @@ class _HelloPanelState extends State<HelloPanel> {
                   onPressed: _countToFive,
                   child: const Text('Count to 5'),
                 ),
+                OutlinedButton(onPressed: _hash, child: const Text('SHA-256')),
               ],
             ),
             if (_greeting != null) Text(_greeting!),
             if (_counted.isNotEmpty) Text('Counted: ${_counted.join(', ')}'),
+            if (_digest != null) Text('SHA-256: $_digest'),
           ],
         ),
       ),
