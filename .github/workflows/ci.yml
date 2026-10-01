@@ -130,7 +130,16 @@ jobs:
         with:
           name: demo-native-android
           path: build/native-android
-      - run: flutter_p0g build webui --device-rust-libs="$PWD/../build/native-android"
+      # Each push to main is a release: 0.<minor> from the app's pubspec,
+      # the run number as patch and versionCode, so the manager's update
+      # button sees every one as newer.
+      - id: version
+        run: |
+          base=$(sed -n 's/^version: *\([0-9]*\.[0-9]*\)\..*/\1/p' app/pubspec.yaml)
+          echo "name=$base.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+      - run: >
+          flutter_p0g build webui --device-rust-libs="$PWD/../build/native-android"
+          --build-name=${{ steps.version.outputs.name }} --build-number=$GITHUB_RUN_NUMBER
         working-directory: app
       - uses: actions/upload-artifact@v4
         with:
@@ -157,3 +166,16 @@ jobs:
           git add -A
           git commit -q -m "WebUI module from $src"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" module
+      # A GitHub release with the zip, update.json and changelog.md:
+      # module.prop's updateJson reads releases/latest/download/, and
+      # "latest" skips prereleases, so these are plain releases (0.x).
+      - name: Publish release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.version.outputs.name }}
+        run: |
+          cd app/build/webui
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "demo $TAG" --notes-file changelog.md --latest \
+            *.zip update.json changelog.md
