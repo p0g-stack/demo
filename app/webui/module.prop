@@ -1,0 +1,6 @@
+id=demo
+name=Demo
+version=v$(FLUTTER_BUILD_NAME)
+versionCode=$(FLUTTER_BUILD_NUMBER)
+author=
+description=The demo GUI. Flutter on top of the core.

@@ -51,6 +51,19 @@ dart run cli/bin/demo.dart serve          # root process; first line {"squadron_
 tool/regen.sh                             # still what p0g_app generates? (needs mason)
 ```
 
+The WebUI module (`app/webui/` and `app/aera/` are what `flutter_p0g create`
+added). The Android crate comes from CI's `native-android` branch or
+`cargo ndk -t arm64-v8a -t x86_64 -o ../build/native-android build --release`
+in `rust/`:
+
+```sh
+flutter_p0g precache --frb --webui --dart-android --dart-android-abi=arm64-v8a,x86_64
+(cd app && flutter_p0g build webui --device-rust-libs="$PWD/../build/native-android")
+```
+
+CI packs the same zip on every push to main and publishes it on the `module`
+branch with its SHA256SUMS.
+
 Tests are unit and widget tests against fake places (`dart test` in `core/`
 and `cli/`, `flutter test` in `app/`); no e2e.
 

@@ -1,0 +1,7 @@
+{
+  "title": "Demo",
+  "backInterceptor": "javascript",
+  "exitConfirm": false,
+  "killShellWhenBackground": false,
+  "pullToRefresh": false
+}
