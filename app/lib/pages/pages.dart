@@ -8,6 +8,8 @@ import '../places/places.dart';
 
 import 'lifecycle/lifecycle_page.dart';
 import 'places/places_page.dart';
+import 'plugins/plugins_page.dart';
+import 'shell/shell_page.dart';
 import 'strategy/strategy_page.dart';
 
 /// What every page shares: how to make its places, and the log lines.
@@ -118,12 +120,13 @@ class DemoPage {
   final WidgetBuilder builder;
 }
 
-/// One page per thing the stack promises. Pages 3, 5 and 6 (Rust, Shell
-/// basics, Plugins) come next.
+/// One page per thing the stack promises. Page 3 (Rust) comes next.
 final demoPages = <DemoPage>[
   DemoPage('Places', Icons.hub_outlined, (_) => const PlacesPage()),
   DemoPage('Strategy', Icons.alt_route, (_) => const StrategyPage()),
   DemoPage('Lifecycle', Icons.timelapse, (_) => const LifecyclePage()),
+  DemoPage('Shell', Icons.phone_android, (_) => const ShellPage()),
+  DemoPage('Plugins', Icons.extension_outlined, (_) => const PluginsPage()),
 ];
 
 class DemoHome extends StatefulWidget {
