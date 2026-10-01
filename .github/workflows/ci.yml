@@ -102,7 +102,7 @@ jobs:
     permissions:
       contents: write # the module branch
     env:
-      FLUTTER_P0G_REF: 0feaa96bf31b0679c24bdf4e6a4e9bec519830e0
+      FLUTTER_P0G_REF: 24eec17ed6c2ab072bb51bcc7b2322799f5b5d40
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -130,6 +130,31 @@ jobs:
         with:
           name: demo-native-android
           path: build/native-android
+      # The module's app-plane APK is signed with a stable key when the repo
+      # has one (secrets WEBUI_KEYSTORE_B64, a base64 PKCS12 keystore, and
+      # WEBUI_KEYSTORE_PASSWORD, store and key password alike, alias
+      # WEBUI_KEY_ALIAS); without them flutter_p0g signs with a fresh debug
+      # key, and an update over an installed module app fails. The files go
+      # in android/ and the runner's temp dir, never webui/: build webui
+      # zips everything in webui/ into the public module.
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.WEBUI_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.WEBUI_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.WEBUI_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::warning::No WEBUI_KEYSTORE_B64 secret: the app-plane APK gets a debug key."
+            exit 0
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.p12"
+          mkdir -p app/android
+          {
+            echo "storeFile=$RUNNER_TEMP/release.p12"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=${KEY_ALIAS:-webui}"
+            echo "keyPassword=$KEYSTORE_PASSWORD"
+          } > app/android/key.properties
       # Each push to main is a release: 0.<minor> from the app's pubspec,
       # the run number as patch and versionCode, so the manager's update
       # button sees every one as newer.
