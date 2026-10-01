@@ -11,7 +11,7 @@ The `p0g_app` workspace: `core/` (pure Dart), `app/` (Flutter), `cli/` (Dart
 CLI, also the WebUI root process), optional `rust/` via frb. Pages live under
 `app/lib/pages/`; strategies (with `available(facts)`) under `core/`.
 
-Built with `flutterp0g_tool build webui` / `aera` and plain `flutter build web`.
+Built with `flutter_p0g build webui` / `aera` and plain `flutter build web`.
 
 ## License
 
