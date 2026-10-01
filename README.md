@@ -11,7 +11,8 @@ The `p0g_app` workspace: `core/` (pure Dart), `app/` (Flutter), `cli/` (Dart
 CLI, also the WebUI root process), optional `rust/` via frb. Pages live under
 `app/lib/pages/`; strategies (with `available(facts)`) under `core/`.
 
-Built with `flutter_p0g build webui` / `aera` and plain `flutter build web`.
+Built with `flutter_p0g build webui` / `aera` / `web`. The plain web build
+runs at https://p0g-stack.github.io/demo/.
 
 ## Pages
 
@@ -24,7 +25,7 @@ Built with `flutter_p0g build webui` / `aera` and plain `flutter build web`.
 | 5 | Shell basics | insets, keyboard, back and exit, light and dark through Flutter's own APIs; what this host gives for each and what every known manager gives (flutter_webui_client's fake hosts), with the fallback | runs |
 | 6 | Plugins | pick, save, share, URL, clipboard through `webui-packages` | stub: each plugin says "unavailable here" until webui-packages ships it |
 
-The workspace is exactly what the `p0g_app` brick (bricks @ 9aa6dae, 0.8.3,
+The workspace is exactly what the `p0g_app` brick (bricks @ a4810cc, 0.8.4,
 with `rust`) generates, plus the pages (`app/lib/pages/`, opened from a panel on the
 brick's home), the demo's core (`DemoService`, the `partitions` objective,
 the page places, the Rust loader), the crate's `demo` module and two CLI
@@ -45,7 +46,7 @@ Pinned Flutter 3.47.5.
 flutter_p0g precache --frb                # before bootstrap, for page 3's wasm (else native only)
 PLATFORMS=web bash tool/bootstrap.sh      # patched Squadron, Rust (tool/rust.sh), codegen, web/, web workers, format
 (cd app && flutter run -d chrome)         # plain web
-(cd app && flutter build web --release --no-web-resources-cdn)
+(cd app && flutter_p0g build web --release)  # plain web, Rust wasm and Web Workers in build/web
 dart run cli/bin/demo.dart facts          # what the CLI's own process can do
 dart run cli/bin/demo.dart partitions     # the Strategy page's objective, from the CLI
 dart run cli/bin/demo.dart serve          # root process; first line {"squadron_process":1,"port":..,"token":..}
@@ -69,8 +70,14 @@ release, so a release carries those three files: CI publishes one on every
 push to main, `v0.<minor>.<run number>` (the run number is also the
 versionCode), so the zip is `demo-v0.<minor>.<run>.zip`.
 
+CI also builds plain web with `flutter_p0g build web --base-href /demo/`,
+runs `tool/web_smoke.mjs` on it in headless Chromium from a plain static
+server (Rust in the page and in a Web Worker, no COOP/COEP), and publishes it
+on the `web` branch, which GitHub Pages serves.
+
 Tests are unit and widget tests against fake places (`dart test` in `core/`
-and `cli/`, `flutter test` in `app/`); no e2e.
+and `cli/`, `flutter test` in `app/`); the one end-to-end check is that web
+smoke check.
 
 ## License
 

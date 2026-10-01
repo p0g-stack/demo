@@ -127,4 +127,39 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('the plugins page copies, pastes and picks a file', (
+    tester,
+  ) async {
+    String? clipboard;
+    final calls = PluginCalls(
+      cameraStatus: () async => 'denied',
+      copy: (text) async => clipboard = text,
+      paste: () async => clipboard,
+      pickFile: () async => '/sdcard/Download/a.txt',
+    );
+    await pump(
+      tester,
+      PluginsPage(host: WebUiHost.detect(FakeBridge.webuix()), calls: calls),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('On WebUI: clipboard_webui'), findsOneWidget);
+
+    Future<void> tap(String label) async {
+      await tester.ensureVisible(find.text(label));
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+
+    await tap('Paste');
+    expect(find.text('Pasted: (no text)'), findsOneWidget);
+    await tap('Copy text');
+    await tap('Paste');
+    expect(
+      find.text('Pasted: Copied from the p0g demo (page 6).'),
+      findsOneWidget,
+    );
+    await tap('Pick a file');
+    expect(find.text('Picked: /sdcard/Download/a.txt'), findsOneWidget);
+  });
 }

@@ -24,6 +24,7 @@ dependencies:
       ref: 798548958306fb5baedf5c06a2f520c85448dba6
   demo_core: any
   # Page 6 (Plugins); on WebUI flutter_p0g adds their *_webui packages.
+  file_selector: ^1.1.0
   permission_handler: ^13.0.2
   share_plus: ^13.3.0
 

@@ -1,5 +1,7 @@
 import 'package:demo_core/demo_core.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_webui_client/flutter_webui_client.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
@@ -13,11 +15,23 @@ final class PluginCalls {
     this.share = _share,
     this.cameraStatus = _cameraStatus,
     this.requestCamera = _requestCamera,
+    this.copy = _copy,
+    this.paste = _paste,
+    this.pickFile = _pickFile,
   });
 
   final Future<String> Function(String text) share;
   final Future<String> Function() cameraStatus;
   final Future<String> Function() requestCamera;
+
+  /// Puts [text] on the clipboard.
+  final Future<void> Function(String text) copy;
+
+  /// The clipboard's text, or null when it holds none.
+  final Future<String?> Function() paste;
+
+  /// The picked file's path, or null when the pick was cancelled.
+  final Future<String?> Function() pickFile;
 
   static Future<String> _share(String text) async =>
       (await SharePlus.instance.share(ShareParams(text: text))).status.name;
@@ -25,6 +39,11 @@ final class PluginCalls {
       (await Permission.camera.status).name;
   static Future<String> _requestCamera() async =>
       (await Permission.camera.request()).name;
+  static Future<void> _copy(String text) =>
+      Clipboard.setData(ClipboardData(text: text));
+  static Future<String?> _paste() async =>
+      (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+  static Future<String?> _pickFile() async => (await openFile())?.path;
 }
 
 /// A stock plugin and how webui-packages answers it on WebUI.
@@ -54,9 +73,20 @@ const cameraRow = PluginRow(
   inBrowser: 'the browser\'s camera prompt',
 );
 
+const clipboardRow = PluginRow(
+  'Clipboard (flutter/services)',
+  'clipboard_webui: Android\'s clipboard, through the module\'s own app',
+  inBrowser: 'the browser\'s clipboard',
+);
+
+const fileRow = PluginRow(
+  'file_selector',
+  'file_selector_webui: the WebView\'s file chooser',
+  inBrowser: 'the browser\'s file chooser',
+);
+
 /// The other webui-packages plugins, which the demo does not call.
 const otherPlugins = [
-  PluginRow('file_selector', 'file_selector_webui: WebView chooser'),
   PluginRow('url_launcher', 'url_launcher_webui: start an activity'),
   PluginRow('path_provider', 'path_provider_webui: module and state dirs'),
   PluginRow('shared_preferences', 'shared_preferences_webui: module storage'),
@@ -80,9 +110,13 @@ class PluginsPage extends StatefulWidget {
 class _PluginsPageState extends State<PluginsPage> {
   static final _log = Logger('ui.plugins');
   static const shareText = 'Shared from the p0g demo (page 6).';
+  static const copyText = 'Copied from the p0g demo (page 6).';
 
   String? _share;
   String? _camera;
+  String? _copied;
+  String? _pasted;
+  String? _picked;
   var _busy = false;
 
   @override
@@ -122,7 +156,8 @@ class _PluginsPageState extends State<PluginsPage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text(
-            'The app calls share_plus and permission_handler as on any '
+            'The app calls share_plus, permission_handler, the clipboard and '
+            'file_selector as on any '
             'platform. Running in ${webui ? 'a WebUI host' : 'a browser tab'}, '
             'so ${webui ? 'their *_webui packages' : 'the stock web packages'} '
             'answer.',
@@ -170,6 +205,67 @@ class _PluginsPageState extends State<PluginsPage> {
                       ),
                 child: const Text('Request camera'),
               ),
+            ],
+          ),
+        ),
+        Section(
+          title: clipboardRow.plugin,
+          subtitle: webui
+              ? 'On WebUI: ${clipboardRow.webui}'
+              : 'Here: ${clipboardRow.inBrowser}',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                children: [
+                  OutlinedButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _run('copy', () async {
+                            await widget.calls.copy(copyText);
+                            return 'copied';
+                          }, (r) => _copied = r),
+                    child: const Text('Copy text'),
+                  ),
+                  OutlinedButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _run(
+                            'paste',
+                            () async =>
+                                await widget.calls.paste() ?? '(no text)',
+                            (r) => _pasted = r,
+                          ),
+                    child: const Text('Paste'),
+                  ),
+                ],
+              ),
+              if (_copied != null) Text('Copy: $_copied'),
+              if (_pasted != null) Text('Pasted: $_pasted'),
+            ],
+          ),
+        ),
+        Section(
+          title: fileRow.plugin,
+          subtitle: webui
+              ? 'On WebUI: ${fileRow.webui}'
+              : 'Here: ${fileRow.inBrowser}',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              OutlinedButton(
+                onPressed: _busy
+                    ? null
+                    : () => _run(
+                        'pick',
+                        () async =>
+                            await widget.calls.pickFile() ?? '(cancelled)',
+                        (r) => _picked = r,
+                      ),
+                child: const Text('Pick a file'),
+              ),
+              if (_picked != null) Text('Picked: $_picked'),
             ],
           ),
         ),
