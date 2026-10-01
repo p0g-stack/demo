@@ -7,6 +7,3 @@ cli/lib/src/runner.dart                   # crunch, partitions at p0g:imports / 
 cli/lib/src/commands/serve_command.dart   # 'demo' at p0g:services
 app/lib/panels/panels.dart                # PagesPanel at p0g:imports / p0g:panels
 rust/src/api/mod.rs                       # `pub mod demo;` (no p0g: marker here)
-app/pubspec.yaml                          # flutter-webui 9342a42 (a throwing ksu.moduleInfo no longer stops the first frame) until bricks bumps its pin
-cli/pubspec.yaml                          # same flutter-webui pin
-core/pubspec.yaml                         # same flutter-webui pin
