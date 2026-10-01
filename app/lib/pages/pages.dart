@@ -1,0 +1,78 @@
+import 'package:demo_core/demo_core.dart';
+import 'package:flutter/material.dart';
+
+import 'lifecycle/lifecycle_page.dart';
+import 'places/places_page.dart';
+import 'strategy/strategy_page.dart';
+
+/// What every page shares: how to make its places, and the run ledger.
+class DemoScope extends InheritedWidget {
+  const DemoScope({
+    super.key,
+    required this.places,
+    required this.ledger,
+    required super.child,
+  });
+
+  /// Each page opens its own places, so one page restarting a worker never
+  /// stops another page's task.
+  final List<Place> Function() places;
+  final Ledger ledger;
+
+  static DemoScope of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DemoScope>()!;
+
+  @override
+  bool updateShouldNotify(DemoScope oldWidget) =>
+      places != oldWidget.places || ledger != oldWidget.ledger;
+}
+
+class DemoPage {
+  const DemoPage(this.title, this.icon, this.builder);
+
+  final String title;
+  final IconData icon;
+  final WidgetBuilder builder;
+}
+
+/// One page per thing the stack promises. Pages 3, 5 and 6 (Rust, Shell
+/// basics, Plugins) come next.
+final demoPages = <DemoPage>[
+  DemoPage('Places', Icons.hub_outlined, (_) => const PlacesPage()),
+  DemoPage('Strategy', Icons.alt_route, (_) => const StrategyPage()),
+  DemoPage('Lifecycle', Icons.timelapse, (_) => const LifecyclePage()),
+];
+
+class DemoHome extends StatefulWidget {
+  const DemoHome({super.key});
+
+  @override
+  State<DemoHome> createState() => _DemoHomeState();
+}
+
+class _DemoHomeState extends State<DemoHome> {
+  var _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final page = demoPages[_index];
+    return Scaffold(
+      appBar: AppBar(title: Text(page.title)),
+      // Keep every page alive so a running task survives switching pages.
+      body: SelectionArea(
+        child: IndexedStack(
+          index: _index,
+          children: [for (final p in demoPages) Builder(builder: p.builder)],
+        ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: [
+          for (final p in demoPages)
+            NavigationDestination(icon: Icon(p.icon), label: p.title),
+        ],
+      ),
+    );
+  }
+}

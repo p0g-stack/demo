@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.5
+          channel: stable
+      - run: flutter pub get
+      # Squadron's generated workers are committed; fail if they are stale.
+      - run: dart run build_runner build --delete-conflicting-outputs
+        working-directory: core
+      - run: git diff --exit-code
+      - run: dart analyze --fatal-infos
+        working-directory: core
+      - run: dart analyze --fatal-infos
+        working-directory: cli
+      - run: flutter analyze
+        working-directory: app
+      - run: dart test
+        working-directory: core
+      - run: dart test
+        working-directory: cli
+      - run: flutter test
+        working-directory: app
+      - run: tool/build_workers.sh
+      # No CDN: WebUI pages are offline, so CanvasKit ships with the app.
+      - run: flutter build web --release --no-web-resources-cdn
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: demo-web
+          path: app/build/web

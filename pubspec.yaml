@@ -1,0 +1,11 @@
+# p0g_app workspace: core/ (pure Dart), app/ (Flutter), cli/ (Dart CLI).
+name: demo_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+workspace:
+  - core
+  - app
+  - cli

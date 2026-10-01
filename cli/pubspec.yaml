@@ -1,0 +1,18 @@
+name: demo_cli
+description: The demo's Dart CLI. On WebUI it is also the root process.
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+executables:
+  demo:
+
+dependencies:
+  args: ^2.7.0
+  demo_core: any
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.26.0

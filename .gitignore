@@ -1,0 +1,5 @@
+.dart_tool/
+build/
+pubspec_overrides.yaml
+# Compiled Web Worker (tool/build_workers.sh); built, not committed.
+app/web/workers/
