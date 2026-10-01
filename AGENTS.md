@@ -1,9 +1,10 @@
 # demo: working agreements
 
-Extends `~/.agents/AGENTS.md`. Seed; refine per directory as the nest fills in.
+Self-contained; no external base file.
 
-- Same layout as `template-app`; diverge only under `lib/pages`, `rust/core`
-  and `tool/`.
-- A page documents its fallback in the UI, not only in a comment.
-- Numbers quoted in a PR (freeze times, job timings) come from the e2e run in
-  that PR's CI, with the profile named.
+- Generated from `p0g_app`; diverge only under `app/lib/pages/` and `core/`.
+  CI regenerates from the brick and diffs.
+- A page per affordance. A page shows its fallback in the UI, not only in a
+  comment.
+- Numbers quoted (freeze times, task timings) come from devicelab runs, with
+  the device, manager and place named.
