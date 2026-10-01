@@ -175,6 +175,18 @@ class _PlacesPageState extends State<PlacesPage>
           ),
         ),
         for (final p in places) _placeCard(p),
+        const Section(
+          title: 'Reference: one call and one stream per place',
+          subtitle:
+              'squadron_process doc/benchmark.md, a 4-vCPU VM. Not measured '
+              'here; devicelab measures devices.',
+          child: Text(
+            'Call: isolate 31 µs, Web Worker (dart2js) 120 µs, process 247 µs, '
+            'process from the page 401 µs.\n'
+            '64 KiB stream: isolate 3643 MiB/s, Web Worker 631 MiB/s, process '
+            'link about 110 MiB/s.',
+          ),
+        ),
       ],
     );
   }
