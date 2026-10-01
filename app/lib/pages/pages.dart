@@ -1,30 +1,34 @@
 import 'package:demo_core/demo_core.dart';
 import 'package:flutter/material.dart';
 
+import '../home.dart' show LogLines;
+
 import 'lifecycle/lifecycle_page.dart';
 import 'places/places_page.dart';
 import 'strategy/strategy_page.dart';
 
-/// What every page shares: how to make its places, and the run ledger.
+/// What every page shares: how to make its places, and the log lines.
 class DemoScope extends InheritedWidget {
   const DemoScope({
     super.key,
     required this.places,
-    required this.ledger,
+    required this.lines,
     required super.child,
   });
 
   /// Each page opens its own places, so one page restarting a worker never
   /// stops another page's task.
   final List<DemoPlace> Function() places;
-  final Ledger ledger;
+
+  /// Every log record, formatted (the brick's `logTo` convention).
+  final LogLines lines;
 
   static DemoScope of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<DemoScope>()!;
 
   @override
   bool updateShouldNotify(DemoScope oldWidget) =>
-      places != oldWidget.places || ledger != oldWidget.ledger;
+      places != oldWidget.places || lines != oldWidget.lines;
 }
 
 /// The places this build offers.

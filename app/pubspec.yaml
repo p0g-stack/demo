@@ -1,17 +1,17 @@
-name: demo
-description: p0g-stack reference app, one page per affordance.
+name: demo_app
+description: The demo GUI. Flutter on top of the core.
 publish_to: none
 version: 0.1.0+1
 resolution: workspace
 
 environment:
-  sdk: ^3.13.0
+  sdk: ^3.11.0
 
 dependencies:
-  demo_core: any
   flutter:
     sdk: flutter
-  web: ^1.1.0
+  squadron: ^7.4.4
+  demo_core: any
 
 dev_dependencies:
   flutter_lints: ^6.0.0

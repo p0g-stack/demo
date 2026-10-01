@@ -13,7 +13,7 @@ class FactsView extends StatelessWidget {
     this.off = const {},
   });
 
-  final PlaceFacts facts;
+  final Facts facts;
   final Set<String> needed;
 
   /// Facts switched off on the page to show a fallback.
@@ -37,7 +37,7 @@ class FactsView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final f in Fact.all)
+        for (final f in checkedFacts)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(
@@ -59,7 +59,7 @@ class FactsView extends StatelessWidget {
                   child: Text(
                     off.contains(f)
                         ? 'switched off on this page'
-                        : facts.keys.contains(f)
+                        : facts[f] != null
                         ? 'check: ${checks[f]}'
                         : 'not checked',
                     style: small,

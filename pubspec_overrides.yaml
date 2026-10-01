@@ -1,6 +1,0 @@
-# squadron_process and its patched Squadron, fetched by tool/deps.sh.
-dependency_overrides:
-  squadron_process:
-    path: .deps/squadron_process
-  squadron:
-    path: .deps/squadron_process/third_party/squadron/src

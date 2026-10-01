@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import '../common/facts_view.dart';
 import '../pages.dart';
 
-/// Page 2: one task, two strategies, picked by `available(facts)`.
+/// Page 2: one objective, two strategies, picked by `available(facts)`.
 ///
-/// The task is CBM's in miniature: list the device's partitions on the device
-/// as root, or from a host with fastboot.
+/// The objective is CBM's in miniature: list the device's partitions on the
+/// device as root, or from a host with fastboot. The page shows the choice
+/// for the picked place; the place itself makes it again when it runs.
 class StrategyPage extends StatefulWidget {
   const StrategyPage({super.key});
 
@@ -16,10 +17,12 @@ class StrategyPage extends StatefulWidget {
 }
 
 class _StrategyPageState extends State<StrategyPage> {
+  static final _log = Logger('objective.partitions');
+
   List<DemoPlace>? _places;
   final _reports = <String, PlaceReport>{};
   String? _placeId;
-  final _masked = <String>{};
+  final _off = <String>{};
   List<Partition>? _result;
   String? _error;
   var _busy = false;
@@ -54,39 +57,50 @@ class _StrategyPageState extends State<StrategyPage> {
 
   DemoPlace? get _place => _places?.where((p) => p.id == _placeId).firstOrNull;
 
-  PlaceFacts? get _facts {
+  Facts? get _facts {
     final f = _reports[_placeId]?.facts;
-    return f == null ? null : withoutFacts(f, _masked);
+    return f == null ? null : withoutFacts(f, _off);
   }
 
-  Future<void> _run(PartitionStrategy s) async {
+  Future<void> _run() async {
     final place = _place!;
     setState(() {
       _busy = true;
       _result = null;
       _error = null;
     });
+    final sw = Stopwatch()..start();
     try {
-      final rows = await DemoScope.of(context).ledger.track(
-        task: 'partitions',
-        strategy: s.id,
-        place: place.id,
-        facts: _facts!,
-        body: () => place.service.partitions(s.id),
+      final r = await place.service.partitions(place.id, _off.toList());
+      _result = [
+        for (final row in r['rows'] as List) Partition.fromJson(row as Map),
+      ];
+      // Log at the call site: records logged inside a worker stay there.
+      _log.info(
+        StrategyRun(
+          objective: 'partitions',
+          strategy: '${r['strategy']}',
+          place: place.id,
+          facts: [for (final f in r['facts'] as List) '$f'],
+          write: false,
+          outcome: 'ok',
+          elapsed: sw.elapsed,
+        ),
       );
-      _result = [for (final r in rows) Partition.fromJson(r)];
     } catch (e) {
       _error = '$e';
+      _log.warning('partitions in ${place.id} failed', e);
     }
     if (mounted) setState(() => _busy = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final ledger = DemoScope.of(context).ledger;
+    final lines = DemoScope.of(context).lines;
     final facts = _facts;
-    final selection = facts == null ? null : pick(partitionStrategies, facts);
-    final chosen = selection?.chosen as PartitionStrategy?;
+    final chosen = facts == null
+        ? null
+        : partitionStrategies.where((s) => s.available(facts)).firstOrNull;
     final needed = {for (final s in partitionStrategies) ...s.requires};
 
     return ListView(
@@ -95,9 +109,9 @@ class _StrategyPageState extends State<StrategyPage> {
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text(
-            'Task: list the device\'s partitions. Strategies in preference order: '
-            'on the device as root, then from a host over USB. The first one the '
-            'place\'s facts allow runs; nothing reads kIsWeb or Platform.',
+            'Objective: list the device\'s partitions. Strategies in preference '
+            'order: on the device as root, then from a host over USB. The first '
+            'one the place\'s facts allow runs; nothing reads kIsWeb or Platform.',
           ),
         ),
         Section(
@@ -124,7 +138,8 @@ class _StrategyPageState extends State<StrategyPage> {
         if (facts != null)
           Section(
             title: 'Facts from ${_place!.label}',
-            subtitle: 'Switch a fact off to see the fallback. You can only take facts away.',
+            subtitle:
+                'Switch a fact off to see the fallback. You can only take facts away.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -138,47 +153,52 @@ class _StrategyPageState extends State<StrategyPage> {
                         selected: facts.has(f),
                         onSelected: (_reports[_placeId]?.facts.has(f) ?? false)
                             ? (on) => setState(
-                                () => on ? _masked.remove(f) : _masked.add(f),
+                                () => on ? _off.remove(f) : _off.add(f),
                               )
                             : null,
                       ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                FactsView(facts: facts, needed: needed, off: _masked),
+                FactsView(facts: facts, needed: needed, off: _off),
               ],
             ),
           ),
-        if (selection != null)
+        if (facts != null)
           Section(
             title: chosen == null
                 ? 'No strategy fits here'
                 : 'Chosen: ${chosen.label}',
-            subtitle: selection.why,
+            subtitle: chosen == null
+                ? 'every strategy is missing a fact'
+                : 'first in order whose facts this place has',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final a in selection.considered)
+                for (final s in partitionStrategies)
                   ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(a.ok ? Icons.check : Icons.close),
-                    title: Text(a.strategy.label),
+                    leading: Icon(
+                      s.available(facts) ? Icons.check : Icons.close,
+                    ),
+                    title: Text(s.label),
                     subtitle: Text(
-                      'needs ${a.strategy.requires.join(' + ')}: ${a.reason}',
+                      'needs ${s.requires.join(' + ')}: '
+                      '${s.available(facts) ? 'has them' : 'missing ${s.missing(facts).join(', ')}'}',
                     ),
                   ),
                 if (chosen == null)
                   const Fallback(
-                    'Nothing runs, and the app says so instead of failing. On WebUI this '
-                    'task goes to the root process (uid 0, block devices); on a computer '
-                    'it needs fastboot and a USB device.',
+                    'Nothing runs, and the app says so instead of failing. On '
+                    'WebUI this objective goes to the root process (uid 0, block '
+                    'devices); on a computer it needs fastboot and a USB device.',
                   )
                 else
                   FilledButton.icon(
-                    onPressed: _busy ? null : () => _run(chosen),
+                    onPressed: _busy ? null : _run,
                     icon: const Icon(Icons.play_arrow),
-                    label: Text('Run ${chosen.id} in ${_place!.id}'),
+                    label: Text('Run ${chosen.name} in ${_place!.id}'),
                   ),
                 if (_busy) const LinearProgressIndicator(),
                 if (_error != null) Text('Failed: $_error'),
@@ -194,14 +214,20 @@ class _StrategyPageState extends State<StrategyPage> {
             ),
           ),
         Section(
-          title: 'Ledger',
-          subtitle: 'Every call: strategy, place and the facts it saw.',
-          child: StreamBuilder<RunRecord>(
-            stream: ledger.changes,
-            builder: (context, _) {
-              final rows = ledger.records.reversed.take(8).toList();
-              if (rows.isEmpty) return const Text('Nothing has run yet.');
-              return Text(rows.map((r) => r.toString()).join('\n\n'));
+          title: 'Log',
+          subtitle:
+              'Every run: objective, strategy, place and the facts it saw.',
+          child: ValueListenableBuilder<List<String>>(
+            valueListenable: lines,
+            builder: (context, all, _) {
+              final rows = all
+                  .where((l) => l.contains('objective.'))
+                  .toList()
+                  .reversed
+                  .take(8);
+              return Text(
+                rows.isEmpty ? 'Nothing has run yet.' : rows.join('\n\n'),
+              );
             },
           ),
         ),

@@ -14,26 +14,22 @@ jobs:
         with:
           flutter-version: 3.47.5
           channel: stable
-      # squadron_process + its patched Squadron (pubspec_overrides.yaml).
+      # The workspace must still be what p0g_app generates (tool/regen.allow).
+      - run: dart pub global activate mason_cli 0.1.4
+      - run: tool/regen.sh
+      # squadron_process + its patched Squadron, then codegen and web workers.
       - run: tool/deps.sh
-      - run: flutter pub get
-      # Squadron's generated workers are committed; fail if they are stale.
-      - run: dart run build_runner build --delete-conflicting-outputs
-        working-directory: core
+      - run: bash tool/bootstrap.sh
+        env:
+          PLATFORMS: web
       - run: git diff --exit-code
       - run: dart analyze --fatal-infos
-        working-directory: core
-      - run: dart analyze --fatal-infos
-        working-directory: cli
-      - run: flutter analyze
-        working-directory: app
       - run: dart test
         working-directory: core
       - run: dart test
         working-directory: cli
       - run: flutter test
         working-directory: app
-      - run: tool/build_workers.sh
       # No CDN: WebUI pages are offline, so CanvasKit ships with the app.
       - run: flutter build web --release --no-web-resources-cdn
         working-directory: app

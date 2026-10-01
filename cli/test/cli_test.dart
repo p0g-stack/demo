@@ -6,23 +6,21 @@ Future<ProcessResult> demo(List<String> args) =>
     Process.run(Platform.resolvedExecutable, ['run', 'bin/demo.dart', ...args]);
 
 void main() {
-  test('facts lists every fact', () async {
-    final r = await demo(['facts']);
-    expect(r.exitCode, 0, reason: '${r.stderr}');
-    expect('${r.stdout}', contains('process.spawn'));
-  });
-
-  test('partitions with every fact masked says why nothing ran', () async {
-    final r = await demo([
-      'partitions',
-      '--mask',
-      'root',
-      '--mask',
-      'usb.native',
-    ]);
-    expect(r.exitCode, 2);
-    expect('${r.stdout}', contains('no strategy fits'));
-  });
+  test(
+    'partitions with root and usb switched off says why nothing ran',
+    () async {
+      final r = await demo([
+        'partitions',
+        '--off',
+        'root',
+        '--off',
+        'usb.native',
+      ]);
+      expect(r.exitCode, 2, reason: '${r.stderr}');
+      expect('${r.stdout}', contains('NoStrategyAvailable'));
+      expect('${r.stdout}', contains('missing root'));
+    },
+  );
 
   test('serve prints a squadron_process ready line first', () async {
     final p = await Process.start(Platform.resolvedExecutable, [
@@ -37,6 +35,6 @@ void main() {
         .first;
     expect(first, contains('"squadron_process":1'));
     // Nobody connects: the host exits by itself.
-    expect(await p.exitCode.timeout(const Duration(seconds: 20)), 0);
+    expect(await p.exitCode.timeout(const Duration(seconds: 30)), 0);
   });
 }

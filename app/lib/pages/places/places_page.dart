@@ -33,6 +33,7 @@ class _Run {
 class _PlacesPageState extends State<PlacesPage>
     with SingleTickerProviderStateMixin {
   static const sizes = [200000, 1000000, 3000000];
+  static final _log = Logger('ui.places');
 
   List<DemoPlace>? _places;
   final _reports = <String, PlaceReport>{};
@@ -80,7 +81,6 @@ class _PlacesPageState extends State<PlacesPage>
   }
 
   Future<void> _runAll() async {
-    final ledger = DemoScope.of(context).ledger;
     for (final p in _places!) {
       final report = _reports[p.id];
       if (report == null || !report.ok) continue;
@@ -92,11 +92,10 @@ class _PlacesPageState extends State<PlacesPage>
       final sw = Stopwatch()..start();
       _Run run;
       try {
-        final r = await ledger.track(
-          task: 'crunch($_n)',
-          place: p.id,
-          facts: report.facts,
-          body: () => p.service.crunch(_n),
+        final r = await p.service.crunch(_n);
+        _log.info(
+          'crunch($_n) in ${p.id}: ${r['ms']} ms inside, '
+          '${sw.elapsedMilliseconds} ms seen by the page',
         );
         run = _Run(
           wallMs: sw.elapsedMilliseconds,
@@ -104,6 +103,7 @@ class _PlacesPageState extends State<PlacesPage>
           frames: _frames,
         );
       } catch (e) {
+        _log.warning('crunch($_n) in ${p.id} failed', e);
         run = _Run(
           wallMs: sw.elapsedMilliseconds,
           inPlaceMs: null,

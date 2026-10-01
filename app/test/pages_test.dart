@@ -1,8 +1,9 @@
-import 'package:demo/pages/lifecycle/lifecycle_page.dart';
-import 'package:demo/pages/lifecycle/run_store.dart';
-import 'package:demo/pages/pages.dart';
-import 'package:demo/pages/places/places_page.dart';
-import 'package:demo/pages/strategy/strategy_page.dart';
+import 'package:demo_app/home.dart' show LogLines;
+import 'package:demo_app/pages/lifecycle/lifecycle_page.dart';
+import 'package:demo_app/pages/lifecycle/run_store.dart';
+import 'package:demo_app/pages/pages.dart';
+import 'package:demo_app/pages/places/places_page.dart';
+import 'package:demo_app/pages/strategy/strategy_page.dart';
 import 'package:demo_core/demo_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,9 +14,15 @@ base class FakeService extends DemoService {
   Future<Map<String, dynamic>> crunch(int n) async => {'count': 1, 'ms': 2};
 
   @override
-  Future<List<Map<String, dynamic>>> partitions(String id) async => [
-    const Partition('boot_a', 1024).toJson(),
-  ];
+  Future<Map<String, dynamic>> partitions(
+    String place,
+    List<String> off,
+  ) async => {
+    'strategy': 'on_device',
+    'facts': ['root'],
+    'ms': 1,
+    'rows': [const Partition('boot_a', 1024).toJson()],
+  };
 
   @override
   Stream<Map<String, dynamic>> ticks(int count, int intervalMs) =>
@@ -38,15 +45,18 @@ final class FakePlace extends DemoPlace {
 
   @override
   Future<PlaceFacts> facts() async =>
-      PlaceFacts({for (final f in Fact.all) f: have.contains(f)});
+      PlaceFacts({for (final f in checkedFacts) f: have.contains(f)});
 }
 
-Widget host(Widget page, List<DemoPlace> Function() places, [Ledger? ledger]) =>
-    DemoScope(
-      places: places,
-      ledger: ledger ?? Ledger(),
-      child: MaterialApp(home: Scaffold(body: page)),
-    );
+Widget host(
+  Widget page,
+  List<DemoPlace> Function() places, [
+  LogLines? lines,
+]) => DemoScope(
+  places: places,
+  lines: lines ?? LogLines(),
+  child: MaterialApp(home: Scaffold(body: page)),
+);
 
 /// Tall enough that ListView builds every section.
 void tall(WidgetTester tester) {
@@ -83,14 +93,15 @@ void main() {
     tester,
   ) async {
     tall(tester);
-    final ledger = Ledger();
+    final lines = LogLines();
+    addTearDown(logTo(lines.add));
     await tester.pumpWidget(
       host(
         const StrategyPage(),
         () => [
           FakePlace('root', {Fact.root, Fact.blockDevices, Fact.processSpawn}),
         ],
-        ledger,
+        lines,
       ),
     );
     await tester.pumpAndSettle();
@@ -98,8 +109,10 @@ void main() {
     await tester.tap(find.text('Run on_device in root'));
     await tester.pumpAndSettle();
     expect(find.textContaining('boot_a'), findsWidgets);
-    expect(ledger.records.single.strategy, 'on_device');
-    expect(ledger.records.single.place, 'root');
+    expect(
+      lines.value.where((l) => l.contains('ran on_device in root')),
+      hasLength(1),
+    );
   });
 
   testWidgets('Strategy switches to the fallback when a fact is switched off', (

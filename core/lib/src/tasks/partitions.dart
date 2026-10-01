@@ -1,6 +1,6 @@
-import 'package:squadron_process/squadron_process.dart';
-
-import '../strategy/strategy.dart';
+import '../facts.dart';
+import '../objective.dart';
+import '../place.dart';
 import 'partitions_stub.dart' if (dart.library.io) 'partitions_io.dart' as impl;
 
 /// A partition as a strategy found it.
@@ -16,15 +16,27 @@ final class Partition {
       Partition(json['name'] as String, (json['bytes'] as num?)?.toInt());
 }
 
-/// The task the Strategy page runs: list the device's partitions.
-///
-/// CBM's real case in miniature: on the device as root, or from a host
-/// over USB with fastboot.
-abstract class PartitionStrategy extends Strategy {
+/// A strategy of the `partitions` objective, with the facts it needs, so the
+/// page can say what is missing as well as whether it is available.
+abstract base class PartitionStrategy
+    extends ReadStrategy<void, List<Partition>> {
   const PartitionStrategy();
 
-  /// Runs in the current place, after checking its own facts allow it.
-  Future<List<Partition>> run() => impl.runHere(this);
+  String get label;
+
+  /// Facts the strategy cannot run without.
+  Set<String> get requires;
+
+  Set<String> missing(Facts facts) => {
+    for (final f in requires)
+      if (!facts.has(f)) f,
+  };
+
+  @override
+  bool available(Facts facts) => missing(facts).isEmpty;
+
+  @override
+  Future<List<Partition>> run(void input, Place place) => impl.runHere(this);
 }
 
 /// Reads `/proc/partitions` on the device itself; needs root to see block
@@ -33,7 +45,7 @@ final class OnDevicePartitions extends PartitionStrategy {
   const OnDevicePartitions();
 
   @override
-  String get id => 'on_device';
+  String get name => 'on_device';
   @override
   String get label => 'on device (/proc/partitions as root)';
   @override
@@ -45,24 +57,27 @@ final class FromHostPartitions extends PartitionStrategy {
   const FromHostPartitions();
 
   @override
-  String get id => 'from_host';
+  String get name => 'from_host';
   @override
   String get label => 'from host (fastboot getvar all)';
   @override
   Set<String> get requires => const {Fact.usbNative, Fact.processSpawn};
 }
 
-/// Preference order: on the device first, then from a host.
-const partitionStrategies = <PartitionStrategy>[
-  OnDevicePartitions(),
-  FromHostPartitions(),
-];
+/// The task the Strategy page runs: list the device's partitions. CBM's real
+/// case in miniature: on the device as root, or from a host over USB.
+final partitionsObjective = Objective<void, List<Partition>>('partitions', [
+  const OnDevicePartitions(),
+  const FromHostPartitions(),
+]);
 
-PartitionStrategy partitionStrategy(String id) =>
-    partitionStrategies.firstWhere(
-      (s) => s.id == id,
-      orElse: () => throw ArgumentError.value(id, 'id', 'no such strategy'),
-    );
+List<PartitionStrategy> get partitionStrategies =>
+    partitionsObjective.strategies.cast<PartitionStrategy>();
+
+/// [facts] with [off] read as missing, to show a fallback. Facts can only be
+/// taken away, never added.
+Facts withoutFacts(Facts facts, Iterable<String> off) =>
+    Facts({...facts.toJson(), for (final f in off) f: false});
 
 /// Parses `/proc/partitions` (major minor #blocks name; blocks of 1 KiB).
 List<Partition> parseProcPartitions(String text) => [

@@ -1,6 +1,9 @@
-import 'package:squadron_process/squadron_process.dart';
+import 'package:squadron_process/squadron_process.dart' as sp;
 
-import '../service/demo_service.dart';
+import '../facts.dart';
+import '../facts_check/check.dart';
+
+import '../services/demo_service.dart';
 
 /// A place as the pages list it: squadron_process places plus the caller
 /// itself, and places this build cannot open (shown, with the reason).
@@ -8,7 +11,7 @@ abstract class DemoPlace {
   String get id;
   String get label;
 
-  /// `inline`, or a squadron_process [PlaceKind].
+  /// `inline`, or a squadron_process place kind.
   String get kind;
 
   /// Why this place does not exist here, or null when it does.
@@ -18,7 +21,7 @@ abstract class DemoPlace {
   DemoService get service;
 
   /// What the place can do, as checked by the place itself.
-  Future<PlaceFacts> facts();
+  Future<sp.PlaceFacts> facts();
 
   Future<void> start() async {}
   void stop() {}
@@ -38,11 +41,11 @@ final class InlinePlace extends DemoPlace {
 
   /// The caller's own context, checked the way LocalPlace checks it.
   @override
-  Future<PlaceFacts> facts() => const LocalPlace().facts();
+  Future<sp.PlaceFacts> facts() async => sp.PlaceFacts(await checkFacts());
 }
 
-/// [DemoServiceWorker] bound to a squadron_process [Place]: an isolate or Web
-/// Worker ([LocalPlace]), or another process ([ProcessPlace]).
+/// [DemoServiceWorker] bound to a squadron_process place: an isolate or Web
+/// Worker (`LocalPlace`), or another process (`ProcessPlace`).
 final class SquadronPlace extends DemoPlace {
   SquadronPlace(this.id, this.label, this.place);
 
@@ -50,7 +53,7 @@ final class SquadronPlace extends DemoPlace {
   final String id;
   @override
   final String label;
-  final Place place;
+  final sp.Place place;
   DemoServiceWorker? _worker;
 
   @override
@@ -63,7 +66,7 @@ final class SquadronPlace extends DemoPlace {
   Future<void> start() => service.start();
 
   @override
-  Future<PlaceFacts> facts() => place.facts();
+  Future<sp.PlaceFacts> facts() => place.facts();
 
   @override
   void stop() {
@@ -84,13 +87,13 @@ final class MissingPlace extends DemoPlace {
   @override
   final String unavailable;
   @override
-  String get kind => PlaceKind.process;
+  String get kind => sp.PlaceKind.process;
 
   @override
   DemoService get service => throw StateError('$label: $unavailable');
 
   @override
-  Future<PlaceFacts> facts() async => const PlaceFacts.none();
+  Future<sp.PlaceFacts> facts() async => const sp.PlaceFacts.none();
 }
 
 const _rootLabel = 'root process (the app CLI, serve mode)';
@@ -100,11 +103,15 @@ const _rootLabel = 'root process (the app CLI, serve mode)';
 /// [process] is the root process place when this build has a way to reach
 /// one; otherwise it is listed as missing with [missingReason].
 List<DemoPlace> demoPlaces({
-  ProcessPlace? process,
+  sp.ProcessPlace? process,
   String missingReason = 'no launcher for the root process in this build',
 }) => [
   InlinePlace(),
-  SquadronPlace('worker', 'worker (isolate or Web Worker)', const LocalPlace()),
+  SquadronPlace(
+    'worker',
+    'worker (isolate or Web Worker)',
+    const sp.LocalPlace(check: checkFacts),
+  ),
   if (process != null)
     SquadronPlace('process', _rootLabel, process)
   else
@@ -122,7 +129,9 @@ final class PlaceReport {
   });
 
   final DemoPlace place;
-  final PlaceFacts facts;
+
+  /// What the place checked, in the brick's [Facts] form.
+  final Facts facts;
 
   /// Time to start the place (spawn the isolate or Web Worker, or connect to
   /// the process and handshake).
@@ -139,18 +148,14 @@ final class PlaceReport {
 Future<PlaceReport> openPlace(DemoPlace place) async {
   final missing = place.unavailable;
   if (missing != null) {
-    return PlaceReport(
-      place: place,
-      facts: const PlaceFacts.none(),
-      error: missing,
-    );
+    return PlaceReport(place: place, facts: Facts.none, error: missing);
   }
   try {
     final sw = Stopwatch()..start();
     await place.start();
     final startMs = sw.elapsedMilliseconds;
     sw.reset();
-    final facts = await place.facts();
+    final facts = Facts((await place.facts()).toMap());
     return PlaceReport(
       place: place,
       facts: facts,
@@ -158,10 +163,6 @@ Future<PlaceReport> openPlace(DemoPlace place) async {
       factsMs: sw.elapsedMilliseconds,
     );
   } catch (e) {
-    return PlaceReport(
-      place: place,
-      facts: const PlaceFacts.none(),
-      error: '$e',
-    );
+    return PlaceReport(place: place, facts: Facts.none, error: '$e');
   }
 }

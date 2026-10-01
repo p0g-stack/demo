@@ -1,5 +1,10 @@
 .dart_tool/
 build/
-.deps/
-# Compiled Web Worker (tool/build_workers.sh); built, not committed.
+pubspec_overrides.yaml
+# Squadron codegen output; tool/bootstrap.sh regenerates it.
+*.g.dart
+*.g.dart.js
+*.g.dart.js.deps
+*.g.dart.js.map
 app/web/workers/
+
