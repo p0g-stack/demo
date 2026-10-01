@@ -7,7 +7,7 @@ on:
 
 # flutter_p0g for the module and web jobs: patched frb, build webui, build web.
 env:
-  FLUTTER_P0G_REF: d84ef535af43887f217d546d692d8eae81c4f13f
+  FLUTTER_P0G_REF: e5d74c62879e79efaca6bd86db4b85bb36237904
 
 jobs:
   build:
@@ -259,6 +259,9 @@ jobs:
         run: |
           src="$GITHUB_SHA"
           cd "$RUNNER_TEMP/site/demo"
+          # wasm-pack puts a `*` .gitignore in pkg/, which would leave the
+          # crate's wasm out of the branch.
+          find . -name .gitignore -delete
           touch .nojekyll
           git init -q -b web
           git config user.name github-actions
