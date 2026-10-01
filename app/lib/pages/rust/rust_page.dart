@@ -149,8 +149,8 @@ class _RustPageState extends State<RustPage> {
             else if (rust != null) ...[
               Text('Built for: ${rust['target']}'),
               Text(
-                'Load: ${rust['loadMs']} ms (the place loads it once, when it '
-                'first checks its facts)',
+                'Load: ${rust['loadMs']} ms (once per place, on its first Rust '
+                'call; on the web that fetches and instantiates the wasm)',
               ),
               Text(
                 'Rust ${rust['ms']} ms, Dart ${dart?['ms']} ms '
