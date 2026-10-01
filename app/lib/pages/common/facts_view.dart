@@ -37,7 +37,7 @@ class FactsView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final f in checkedFacts)
+        for (final f in Fact.all)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(

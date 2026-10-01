@@ -13,8 +13,10 @@ JSObject? get _storage {
 
 String? read() {
   try {
-    return (_storage?.callMethod('getItem'.toJS, _key.toJS) as JSString?)
-        ?.toDart;
+    return (_storage?.callMethod(
+      'getItem'.toJS,
+      _key.toJS,
+    ) as JSString?)?.toDart;
   } on Object {
     return null;
   }

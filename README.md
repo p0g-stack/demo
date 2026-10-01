@@ -24,29 +24,28 @@ Built with `flutter_p0g build webui` / `aera` and plain `flutter build web`.
 | 5 | Shell basics | insets, keyboard, back and exit at root, light and dark | next |
 | 6 | Plugins | pick, save, share, URL, clipboard through `webui-packages` | next |
 
-The workspace is what the `p0g_app` brick (bricks @ 6bab8b4) generates, plus
-the pages, the demo's core and CLI commands. `tool/regen.sh` regenerates it in
-CI and fails on any difference not listed in `tool/regen.allow`. Strategies use
-the brick's `Objective` and logging; places come from `squadron_process`, with
-the facts checked by `core/lib/src/facts_check/`.
+The workspace is exactly what the `p0g_app` brick (bricks @ 6d3e56a, 0.2.0)
+generates, plus the pages (`app/lib/pages/`, opened from a panel on the
+brick's home), the demo's core (`DemoService`, the `partitions` objective,
+the page places) and two CLI commands. The only edits to generated files are
+insertions at the brick's `// p0g:` markers; `tool/regen.sh` regenerates the
+workspace in CI and fails on anything else (`tool/regen.allow`).
 
-The root process still has no launcher on WebUI (the brick wires one over
-flutter-webui's root channel once its `process_place` variant matches
-squadron_process). For development, point a page at a running `demo serve`:
-`?place=<port>&token=<token>`.
+The root process comes from the brick's `Places`: `P0G_CLI` on a desktop,
+flutter-webui's root channel on WebUI. For development on plain web, point a
+page at a running `demo serve demo`: `?place=<port>&token=<token>`.
 
 ## Run
 
 Pinned Flutter 3.47.5.
 
 ```sh
-tool/deps.sh                              # squadron_process + patched Squadron (pubspec_overrides.yaml)
-PLATFORMS=web bash tool/bootstrap.sh      # codegen, web/, web workers, format
+PLATFORMS=web bash tool/bootstrap.sh      # patched Squadron, codegen, web/, web workers, format
 (cd app && flutter run -d chrome)         # plain web
 (cd app && flutter build web --release --no-web-resources-cdn)
 dart run cli/bin/demo.dart facts          # what the CLI's own process can do
 dart run cli/bin/demo.dart partitions     # the Strategy page's objective, from the CLI
-dart run cli/bin/demo.dart serve          # root process; first line {"squadron_process":1,"port":..,"token":..}
+dart run cli/bin/demo.dart serve demo     # root process; first line {"squadron_process":1,"port":..,"token":..}
 tool/regen.sh                             # still what p0g_app generates? (needs mason)
 ```
 

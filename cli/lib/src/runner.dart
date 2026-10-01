@@ -6,9 +6,9 @@ import 'package:demo_core/demo_core.dart';
 
 import 'commands/facts_command.dart';
 import 'commands/hello_command.dart';
+import 'commands/serve_command.dart';
 import 'commands/crunch_command.dart';
 import 'commands/partitions_command.dart';
-import 'commands/serve_command.dart';
 
 // p0g:imports (bricks insert imports above this line)
 
@@ -21,9 +21,9 @@ class AppRunner extends CommandRunner<int> {
       ..addFlag('json', help: 'Log records as JSON lines.');
     addCommand(FactsCommand());
     addCommand(HelloCommand());
+    addCommand(ServeCommand());
     addCommand(CrunchCommand());
     addCommand(PartitionsCommand());
-    addCommand(ServeCommand());
     // p0g:commands (bricks insert commands above this line)
   }
 
@@ -51,3 +51,7 @@ class AppRunner extends CommandRunner<int> {
     }
   }
 }
+
+/// The CLI running a command itself, with facts checked here.
+Future<PlaceInfo> cliPlace() async =>
+    PlaceInfo('cli', Facts(await checkFacts()));

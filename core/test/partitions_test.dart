@@ -2,42 +2,46 @@ import 'package:demo_core/demo_core.dart';
 import 'package:test/test.dart';
 
 Facts facts(Set<String> have) =>
-    Facts({for (final f in checkedFacts) f: have.contains(f)});
+    Facts({for (final f in Fact.all) f: have.contains(f)});
 
-String? chosen(Facts f) =>
-    partitionsObjective.availableIn(Place('fake', f)).firstOrNull?.name;
+Selection<ReadStrategy<void, List<Partition>>> select(Facts f) =>
+    partitionsObjective.selectRead(PlaceInfo('fake', f));
 
 void main() {
   group('partitions objective', () {
     test('prefers on device when the place has root and block devices', () {
-      expect(
-        chosen(
-          facts({
-            Fact.root,
-            Fact.blockDevices,
-            Fact.usbNative,
-            Fact.processSpawn,
-          }),
-        ),
-        'on_device',
+      final s = select(
+        facts({
+          Fact.root,
+          Fact.blockDevices,
+          Fact.usbNative,
+          Fact.processSpawn,
+        }),
       );
+      expect(s.chosen?.name, 'on_device');
     });
 
-    test('falls back to host when root is missing', () {
-      final f = facts({Fact.blockDevices, Fact.usbNative, Fact.processSpawn});
-      expect(chosen(f), 'from_host');
-      expect(partitionStrategies.first.missing(f), {Fact.root});
+    test('falls back to host when root is missing, and says why', () {
+      final s = select(
+        facts({Fact.blockDevices, Fact.usbNative, Fact.processSpawn}),
+      );
+      expect(s.chosen?.name, 'from_host');
+      expect(s.why, 'on_device skipped (missing root); from_host chosen');
     });
 
-    test('chooses nothing in a browser place and says what is missing', () {
+    test('chooses nothing in a browser place', () {
       final f = facts({Fact.usbWeb, Fact.net});
-      expect(chosen(f), isNull);
-      expect(partitionStrategies.map((s) => s.missing(f)), [
-        {Fact.root, Fact.blockDevices},
-        {Fact.usbNative, Fact.processSpawn},
-      ]);
+      final s = select(f);
+      expect(s.chosen, isNull);
       expect(
-        () => partitionsObjective.run(null, Place('fake', f)),
+        [for (final (_, a) in s.considered) a.missing],
+        [
+          {Fact.root, Fact.blockDevices},
+          {Fact.usbNative, Fact.processSpawn},
+        ],
+      );
+      expect(
+        () => partitionsObjective.run(null, PlaceInfo('fake', f)),
         throwsA(isA<NoStrategyAvailable>()),
       );
     });
@@ -47,7 +51,7 @@ void main() {
         Fact.root,
       });
       expect(f.has(Fact.root), isFalse);
-      expect(chosen(f), isNull);
+      expect(select(f).chosen, isNull);
     });
   });
 

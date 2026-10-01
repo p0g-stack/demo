@@ -1,13 +1,15 @@
 import 'package:args/command_runner.dart';
 import 'package:demo_core/demo_core.dart';
 
-/// The Strategy page's task, run in the CLI's own process.
+import '../runner.dart';
+
+/// The Strategy page's objective, run in the CLI's own process.
 class PartitionsCommand extends Command<int> {
   PartitionsCommand() {
     argParser.addMultiOption(
       'off',
       help: 'Treat these facts as missing, to see the fallback.',
-      allowed: checkedFacts,
+      allowed: Fact.all,
     );
   }
 
@@ -20,25 +22,18 @@ class PartitionsCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    final facts = withoutFacts(
-      Facts(await checkFacts()),
-      argResults!.multiOption('off'),
+    final cli = await cliPlace();
+    final place = PlaceInfo(
+      cli.kind,
+      withoutFacts(cli.facts, argResults!.multiOption('off')),
     );
-    final place = Place('cli', facts);
-    for (final s in partitionStrategies) {
-      final missing = s.missing(facts);
-      print(
-        '${missing.isEmpty ? 'yes' : 'no '}  ${s.label}'
-        '${missing.isEmpty ? '' : ' (missing ${missing.join(', ')})'}',
-      );
-    }
+    print(partitionsObjective.selectRead(place).why);
     try {
       for (final p in await partitionsObjective.run(null, place)) {
         print('  ${p.name.padRight(24)} ${p.bytes ?? '?'}');
       }
       return 0;
-    } on NoStrategyAvailable catch (e) {
-      print(e);
+    } on NoStrategyAvailable {
       return 2;
     }
   }

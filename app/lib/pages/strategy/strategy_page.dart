@@ -71,7 +71,7 @@ class _StrategyPageState extends State<StrategyPage> {
     });
     final sw = Stopwatch()..start();
     try {
-      final r = await place.service.partitions(place.id, _off.toList());
+      final r = await place.service.partitions(_off.toList());
       _result = [
         for (final row in r['rows'] as List) Partition.fromJson(row as Map),
       ];
@@ -83,6 +83,7 @@ class _StrategyPageState extends State<StrategyPage> {
           place: place.id,
           facts: [for (final f in r['facts'] as List) '$f'],
           write: false,
+          why: '${r['why']}',
           outcome: 'ok',
           elapsed: sw.elapsed,
         ),
@@ -98,10 +99,13 @@ class _StrategyPageState extends State<StrategyPage> {
   Widget build(BuildContext context) {
     final lines = DemoScope.of(context).lines;
     final facts = _facts;
-    final chosen = facts == null
+    final selection = facts == null
         ? null
-        : partitionStrategies.where((s) => s.available(facts)).firstOrNull;
-    final needed = {for (final s in partitionStrategies) ...s.requires};
+        : partitionsObjective.selectRead(PlaceInfo(_place!.kind, facts));
+    final chosen = selection?.chosen as PartitionStrategy?;
+    final needed = <String>{
+      for (final s in partitionsObjective.strategies) ...s.requires,
+    };
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -138,8 +142,7 @@ class _StrategyPageState extends State<StrategyPage> {
         if (facts != null)
           Section(
             title: 'Facts from ${_place!.label}',
-            subtitle:
-                'Switch a fact off to see the fallback. You can only take facts away.',
+            subtitle: 'Switch a fact off to see the fallback. You can only take facts away.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -164,28 +167,23 @@ class _StrategyPageState extends State<StrategyPage> {
               ],
             ),
           ),
-        if (facts != null)
+        if (selection != null)
           Section(
             title: chosen == null
                 ? 'No strategy fits here'
                 : 'Chosen: ${chosen.label}',
-            subtitle: chosen == null
-                ? 'every strategy is missing a fact'
-                : 'first in order whose facts this place has',
+            subtitle: selection.why,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final s in partitionStrategies)
+                for (final (s, a) in selection.considered)
                   ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      s.available(facts) ? Icons.check : Icons.close,
-                    ),
-                    title: Text(s.label),
+                    leading: Icon(a.ok ? Icons.check : Icons.close),
+                    title: Text((s as PartitionStrategy).label),
                     subtitle: Text(
-                      'needs ${s.requires.join(' + ')}: '
-                      '${s.available(facts) ? 'has them' : 'missing ${s.missing(facts).join(', ')}'}',
+                      'needs ${s.requires.join(' + ')}: ${a.ok ? 'has them' : a.reason}',
                     ),
                   ),
                 if (chosen == null)

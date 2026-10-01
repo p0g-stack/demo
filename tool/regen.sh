@@ -5,7 +5,7 @@
 # reason. Files the demo adds are free under app/lib/pages/, app/test/, core/,
 # cli/lib/src/commands/ and tool/. Needs mason (mason_cli 0.1.4) and dart.
 set -euo pipefail
-BRICKS_REF=6bab8b4ff9e358d901c7e6cdd7904aa9140e53ad
+BRICKS_REF=6d3e56ad939b6147555d246025f046ece0969e63
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 work="$(mktemp -d)"
@@ -24,7 +24,10 @@ YAML
 gen="$work/out/demo"
 # Only what the brick stamps, not what pub get adds.
 find "$gen" -type f | sort > "$work/files"
-(cd "$gen" && flutter pub get >/dev/null 2>&1 && dart format core cli app/lib app/test >/dev/null 2>&1)
+# Format needs the package graph, not the patched Squadron; drop the overrides
+# (already listed) so pub can resolve without .p0g/.
+(cd "$gen" && mv pubspec_overrides.yaml "$work/overrides" && flutter pub get >/dev/null 2>&1 && dart format core cli app/lib app/test >/dev/null 2>&1 &&
+  mv "$work/overrides" pubspec_overrides.yaml)
 
 allowed() { grep -qxF "$1" <(sed -e 's/[[:space:]]*#.*$//' -e '/^$/d' "$root/tool/regen.allow"); }
 

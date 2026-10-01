@@ -1,9 +1,9 @@
-import 'package:demo_app/home.dart' show LogLines;
-import 'package:demo_app/pages/lifecycle/lifecycle_page.dart';
-import 'package:demo_app/pages/lifecycle/run_store.dart';
-import 'package:demo_app/pages/pages.dart';
-import 'package:demo_app/pages/places/places_page.dart';
-import 'package:demo_app/pages/strategy/strategy_page.dart';
+import 'package:demo/home.dart' show LogLines;
+import 'package:demo/pages/lifecycle/lifecycle_page.dart';
+import 'package:demo/pages/lifecycle/run_store.dart';
+import 'package:demo/pages/pages.dart';
+import 'package:demo/pages/places/places_page.dart';
+import 'package:demo/pages/strategy/strategy_page.dart';
 import 'package:demo_core/demo_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,11 +14,9 @@ base class FakeService extends DemoService {
   Future<Map<String, dynamic>> crunch(int n) async => {'count': 1, 'ms': 2};
 
   @override
-  Future<Map<String, dynamic>> partitions(
-    String place,
-    List<String> off,
-  ) async => {
+  Future<Map<String, dynamic>> partitions(List<String> off) async => {
     'strategy': 'on_device',
+    'why': 'on_device chosen',
     'facts': ['root'],
     'ms': 1,
     'rows': [const Partition('boot_a', 1024).toJson()],
@@ -45,7 +43,7 @@ final class FakePlace extends DemoPlace {
 
   @override
   Future<PlaceFacts> facts() async =>
-      PlaceFacts({for (final f in checkedFacts) f: have.contains(f)});
+      PlaceFacts({for (final f in Fact.all) f: have.contains(f)});
 }
 
 Widget host(

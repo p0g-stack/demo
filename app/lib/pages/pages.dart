@@ -1,7 +1,10 @@
 import 'package:demo_core/demo_core.dart';
 import 'package:flutter/material.dart';
+import 'package:squadron_process/squadron_process.dart'
+    show ProcessEndpoint, ProcessPlace;
 
 import '../home.dart' show LogLines;
+import '../places/places.dart';
 
 import 'lifecycle/lifecycle_page.dart';
 import 'places/places_page.dart';
@@ -31,26 +34,80 @@ class DemoScope extends InheritedWidget {
       places != oldWidget.places || lines != oldWidget.lines;
 }
 
-/// The places this build offers.
+/// The places the pages offer: inline, the local Squadron place, and the
+/// root process from the brick's [Places] (its launcher: `P0G_CLI` on a
+/// desktop, flutter-webui's root channel on WebUI).
 ///
-/// The root process needs a launcher: on WebUI the p0g_app brick wires one
-/// over flutter-webui's root channel. Until then, a page can be pointed at a
-/// running `demo serve` for development: `?place=<port>&token=<token>`.
-List<DemoPlace> placesForThisBuild() {
+/// For development on plain web, where there is no launcher, a page can be
+/// pointed at a running `demo serve demo`: `?place=<port>&token=<token>`.
+List<DemoPlace> pagePlaces(Places places) {
   final q = Uri.base.queryParameters;
   final port = int.tryParse(q['place'] ?? '');
   final token = q['token'];
   return demoPlaces(
-    process: port != null && token != null
-        ? ProcessPlace(
-            endpoint: ProcessEndpoint(port: port, token: token),
-          )
-        : null,
+    process:
+        places.process('demo') ??
+        (port != null && token != null
+            ? ProcessPlace(
+                endpoint: ProcessEndpoint(port: port, token: token),
+              )
+            : null),
     missingReason:
-        'no launcher in this build yet (the WebUI one comes with the p0g_app '
-        'brick over flutter-webui\'s root channel); for development, run '
-        '`demo serve` and open ?place=<port>&token=<token>',
+        'no launcher here (P0G_CLI on a desktop, the root channel on WebUI); '
+        'for development, run `demo serve demo` and open '
+        '?place=<port>&token=<token>',
   );
+}
+
+/// Log lines from [Logger.root], kept for the app's life once the pages
+/// first open (the brick's home keeps its own).
+LogLines pageLog() {
+  final lines = LogLines();
+  Logger.root.onRecord.listen((r) => lines.add(formatRecord(r)));
+  return lines;
+}
+
+/// The panel on the brick's home page that opens the demo's pages.
+class PagesPanel extends StatelessWidget {
+  const PagesPanel({super.key, required this.places});
+
+  static Widget inPlace(Places places, String kind) =>
+      PagesPanel(places: places);
+
+  final Places places;
+
+  static LogLines? _lines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ListTile(
+            title: Text('Demo pages'),
+            subtitle: Text('One page per thing the stack promises.'),
+          ),
+          for (final (i, p) in demoPages.indexed)
+            ListTile(
+              leading: Icon(p.icon),
+              title: Text(p.title),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => DemoScope(
+                    places: () => pagePlaces(places),
+                    lines: _lines ??= pageLog(),
+                    child: DemoHome(initial: i),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class DemoPage {
@@ -70,14 +127,16 @@ final demoPages = <DemoPage>[
 ];
 
 class DemoHome extends StatefulWidget {
-  const DemoHome({super.key});
+  const DemoHome({super.key, this.initial = 0});
+
+  final int initial;
 
   @override
   State<DemoHome> createState() => _DemoHomeState();
 }
 
 class _DemoHomeState extends State<DemoHome> {
-  var _index = 0;
+  late var _index = widget.initial;
 
   @override
   Widget build(BuildContext context) {

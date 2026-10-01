@@ -1,34 +1,44 @@
-import 'dart:io';
-
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
-import 'package:demo_core/demo_core.dart';
+import 'package:squadron/squadron.dart';
 import 'package:squadron_process/io.dart';
+import 'package:demo_core/demo_core.dart';
 
-/// Hosts DemoService as a squadron_process place: the root process on WebUI.
+/// The services this CLI can host for the process place, by name.
+final Map<String, Worker Function()> services = {
+  'hello': HelloServiceWorker.new,
+  'demo': DemoServiceWorker.new,
+  // p0g:services (bricks insert services above this line)
+};
+
+/// Hosts one of the app's Squadron services for the process place.
 ///
-/// Prints the ready line first on stdout and exits by the lifetime rule
-/// (hidden keeps going, closed stops after the grace window).
+/// On WebUI the page starts
+/// `demo serve <service> --session-file ...` as root
+/// through flutter-webui's root channel; on a desktop, `IoProcessLauncher`
+/// starts it. The host prints its endpoint as the first stdout line, and exits once its last page link has been gone
+/// for the grace window: hidden keeps running, closed stops.
 class ServeCommand extends Command<int> {
   @override
-  final argParser = ArgParser.allowAnything();
+  final ArgParser argParser = ArgParser.allowAnything();
 
   @override
   String get name => 'serve';
 
   @override
   String get description =>
-      'Host DemoService for the app over a loopback socket '
-      '([--port N] [--session-file PATH] [--grace-ms N] [--first-link-grace-ms N]).';
+      'Host a service for the process place: serve <service> '
+      '[--session-file F] [--port N] [--grace-ms N] [--first-link-grace-ms N]. '
+      'Services: ${services.keys.join(', ')}.';
 
   @override
   Future<int> run() async {
-    final code = await serve(
-      DemoServiceWorker(),
-      argResults!.rest,
-      facts: checkFacts,
-    );
-    // The service's isolate would otherwise keep the VM alive.
-    exit(code);
+    final args = argResults!.rest;
+    final create = args.isEmpty ? null : services[args.first];
+    if (create == null) {
+      usageException('serve needs one of: ${services.keys.join(', ')}');
+    }
+    Logger('cli.serve').info('serving ${args.first}');
+    return serve(create(), args.skip(1).toList(), facts: checkFacts);
   }
 }

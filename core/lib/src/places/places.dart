@@ -1,9 +1,8 @@
 import 'package:squadron_process/squadron_process.dart' as sp;
 
-import '../facts.dart';
-import '../facts_check/check.dart';
+import '../facts/facts.dart';
 
-import '../services/demo_service.dart';
+import '../service/demo_service.dart';
 
 /// A place as the pages list it: squadron_process places plus the caller
 /// itself, and places this build cannot open (shown, with the reason).
@@ -41,7 +40,7 @@ final class InlinePlace extends DemoPlace {
 
   /// The caller's own context, checked the way LocalPlace checks it.
   @override
-  Future<sp.PlaceFacts> facts() async => sp.PlaceFacts(await checkFacts());
+  Future<sp.PlaceFacts> facts() async => Facts(await checkFacts());
 }
 
 /// [DemoServiceWorker] bound to a squadron_process place: an isolate or Web
@@ -107,11 +106,7 @@ List<DemoPlace> demoPlaces({
   String missingReason = 'no launcher for the root process in this build',
 }) => [
   InlinePlace(),
-  SquadronPlace(
-    'worker',
-    'worker (isolate or Web Worker)',
-    const sp.LocalPlace(check: checkFacts),
-  ),
+  SquadronPlace('worker', 'worker (isolate or Web Worker)', localPlace),
   if (process != null)
     SquadronPlace('process', _rootLabel, process)
   else
@@ -130,7 +125,7 @@ final class PlaceReport {
 
   final DemoPlace place;
 
-  /// What the place checked, in the brick's [Facts] form.
+  /// What the place checked.
   final Facts facts;
 
   /// Time to start the place (spawn the isolate or Web Worker, or connect to
@@ -148,14 +143,14 @@ final class PlaceReport {
 Future<PlaceReport> openPlace(DemoPlace place) async {
   final missing = place.unavailable;
   if (missing != null) {
-    return PlaceReport(place: place, facts: Facts.none, error: missing);
+    return PlaceReport(place: place, facts: const Facts.none(), error: missing);
   }
   try {
     final sw = Stopwatch()..start();
     await place.start();
     final startMs = sw.elapsedMilliseconds;
     sw.reset();
-    final facts = Facts((await place.facts()).toMap());
+    final facts = await place.facts();
     return PlaceReport(
       place: place,
       facts: facts,
@@ -163,6 +158,6 @@ Future<PlaceReport> openPlace(DemoPlace place) async {
       factsMs: sw.elapsedMilliseconds,
     );
   } catch (e) {
-    return PlaceReport(place: place, facts: Facts.none, error: '$e');
+    return PlaceReport(place: place, facts: const Facts.none(), error: '$e');
   }
 }

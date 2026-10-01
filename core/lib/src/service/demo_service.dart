@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:logging/logging.dart';
 import 'package:squadron/squadron.dart';
 
-import '../facts.dart';
-import '../facts_check/check.dart';
-import '../place.dart';
+import '../facts/facts.dart';
 import '../tasks/partitions.dart';
 import 'demo_service.activator.g.dart';
 
@@ -52,21 +50,20 @@ base class DemoService {
   }
 
   /// Runs the `partitions` objective here, with this place's own facts minus
-  /// [off]. [place] names the place for the run record. Returns the strategy
-  /// that ran, the facts it saw, the time and the rows.
+  /// [off]; the objective picks the strategy inside the place and logs the
+  /// run there. Returns what it picked and why, so the caller can log it too
+  /// (records logged inside a worker stay in that worker).
   @squadronMethod
-  Future<Map<String, dynamic>> partitions(
-    String place,
-    List<String> off,
-  ) async {
-    final facts = withoutFacts(Facts(await checkFacts()), off);
-    final here = Place(place, facts);
-    final strategy = partitionsObjective.availableIn(here).firstOrNull;
+  Future<Map<String, dynamic>> partitions(List<String> off) async {
+    final current = await PlaceInfo.current();
+    final here = PlaceInfo(current.kind, withoutFacts(current.facts, off));
+    final selection = partitionsObjective.selectRead(here);
     final sw = Stopwatch()..start();
     final rows = await partitionsObjective.run(null, here);
     return {
-      'strategy': strategy?.name,
-      'facts': facts.present,
+      'strategy': selection.chosen?.name,
+      'why': selection.why,
+      'facts': here.facts.present,
       'ms': sw.elapsedMilliseconds,
       'rows': [for (final p in rows) p.toJson()],
     };

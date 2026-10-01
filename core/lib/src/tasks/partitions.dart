@@ -1,7 +1,7 @@
-import '../facts.dart';
-import '../objective.dart';
-import '../place.dart';
+import '../facts/facts.dart';
+import '../strategy/strategy.dart';
 import 'partitions_stub.dart' if (dart.library.io) 'partitions_io.dart' as impl;
+import '../strategy/objective.dart';
 
 /// A partition as a strategy found it.
 final class Partition {
@@ -16,27 +16,16 @@ final class Partition {
       Partition(json['name'] as String, (json['bytes'] as num?)?.toInt());
 }
 
-/// A strategy of the `partitions` objective, with the facts it needs, so the
-/// page can say what is missing as well as whether it is available.
+/// A strategy of the `partitions` objective, with a label for the page.
 abstract base class PartitionStrategy
     extends ReadStrategy<void, List<Partition>> {
   const PartitionStrategy();
 
   String get label;
 
-  /// Facts the strategy cannot run without.
-  Set<String> get requires;
-
-  Set<String> missing(Facts facts) => {
-    for (final f in requires)
-      if (!facts.has(f)) f,
-  };
-
   @override
-  bool available(Facts facts) => missing(facts).isEmpty;
-
-  @override
-  Future<List<Partition>> run(void input, Place place) => impl.runHere(this);
+  Future<List<Partition>> run(void input, PlaceInfo place) =>
+      impl.runHere(this);
 }
 
 /// Reads `/proc/partitions` on the device itself; needs root to see block
@@ -64,20 +53,17 @@ final class FromHostPartitions extends PartitionStrategy {
   Set<String> get requires => const {Fact.usbNative, Fact.processSpawn};
 }
 
-/// The task the Strategy page runs: list the device's partitions. CBM's real
-/// case in miniature: on the device as root, or from a host over USB.
+/// The objective the Strategy page runs: list the device's partitions. CBM's
+/// real case in miniature: on the device as root, or from a host over USB.
 final partitionsObjective = Objective<void, List<Partition>>('partitions', [
   const OnDevicePartitions(),
   const FromHostPartitions(),
 ]);
 
-List<PartitionStrategy> get partitionStrategies =>
-    partitionsObjective.strategies.cast<PartitionStrategy>();
-
 /// [facts] with [off] read as missing, to show a fallback. Facts can only be
 /// taken away, never added.
 Facts withoutFacts(Facts facts, Iterable<String> off) =>
-    Facts({...facts.toJson(), for (final f in off) f: false});
+    facts.merge({for (final f in off) f: false});
 
 /// Parses `/proc/partitions` (major minor #blocks name; blocks of 1 KiB).
 List<Partition> parseProcPartitions(String text) => [

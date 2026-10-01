@@ -17,8 +17,7 @@ jobs:
       # The workspace must still be what p0g_app generates (tool/regen.allow).
       - run: dart pub global activate mason_cli 0.1.4
       - run: tool/regen.sh
-      # squadron_process + its patched Squadron, then codegen and web workers.
-      - run: tool/deps.sh
+      # Patched Squadron, pub get, codegen, web/, web workers, format.
       - run: bash tool/bootstrap.sh
         env:
           PLATFORMS: web

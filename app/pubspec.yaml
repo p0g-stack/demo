@@ -1,16 +1,20 @@
-name: demo_app
+name: demo
 description: The demo GUI. Flutter on top of the core.
 publish_to: none
 version: 0.1.0+1
 resolution: workspace
 
 environment:
-  sdk: ^3.11.0
+  sdk: ^3.13.0
 
 dependencies:
   flutter:
     sdk: flutter
   squadron: ^7.4.4
+  squadron_process:
+    git:
+      url: https://github.com/p0g-stack/squadron_process
+      ref: daf4a21b5cfcefb40afafb14bcaa7bc41d079545
   demo_core: any
 
 dev_dependencies:
