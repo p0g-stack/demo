@@ -102,7 +102,7 @@ jobs:
     permissions:
       contents: write # the module branch
     env:
-      FLUTTER_P0G_REF: 97ce30730f5d0848aeee38128d6520c63ba06b75
+      FLUTTER_P0G_REF: 4ea38c7b3e7bcd093f2e66f83cd7f4721f0bc18f
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -135,14 +135,19 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: demo-webui-module
-          path: app/build/webui/*.zip
+          path: |
+            app/build/webui/*.zip
+            app/build/webui/update.json
+            app/build/webui/changelog.md
       # The zip on a branch too, like native-android: one commit, replaced
-      # on each push to main.
+      # on each push to main. update.json and changelog.md (module.prop's
+      # updateJson) go with it; a GitHub release publishing all three is
+      # what the manager's update button reads.
       - name: Publish module branch
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           src="$GITHUB_SHA"
-          mkdir -p "$RUNNER_TEMP/module" && cp app/build/webui/*.zip "$RUNNER_TEMP/module/"
+          mkdir -p "$RUNNER_TEMP/module" && cp app/build/webui/*.zip app/build/webui/update.json app/build/webui/changelog.md "$RUNNER_TEMP/module/"
           cd "$RUNNER_TEMP/module"
           sha256sum *.zip > SHA256SUMS
           echo "# packed from p0g-stack/demo $src by flutter_p0g $FLUTTER_P0G_REF" >> SHA256SUMS

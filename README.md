@@ -62,7 +62,9 @@ flutter_p0g precache --frb --webui --dart-android --dart-android-abi=arm64-v8a,x
 ```
 
 CI packs the same zip on every push to main and publishes it on the `module`
-branch with its SHA256SUMS.
+branch with its SHA256SUMS, `update.json` and `changelog.md`. `updateJson` in
+`app/webui/module.prop` points managers' update button at the latest GitHub
+release, so a release carries those three files.
 
 Tests are unit and widget tests against fake places (`dart test` in `core/`
 and `cli/`, `flutter test` in `app/`); no e2e.
