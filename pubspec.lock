@@ -354,8 +354,8 @@ packages:
     dependency: transitive
     description:
       path: "packages/flutter_webui_client"
-      ref: "798548958306fb5baedf5c06a2f520c85448dba6"
-      resolved-ref: "798548958306fb5baedf5c06a2f520c85448dba6"
+      ref: "95be76718faf7bc9272567a05899a176afe41be9"
+      resolved-ref: "95be76718faf7bc9272567a05899a176afe41be9"
       url: "https://github.com/p0g-stack/flutter-webui"
     source: git
     version: "0.1.0"
@@ -363,11 +363,11 @@ packages:
     dependency: transitive
     description:
       path: "packages/flutter_webui_root"
-      ref: "798548958306fb5baedf5c06a2f520c85448dba6"
-      resolved-ref: "798548958306fb5baedf5c06a2f520c85448dba6"
+      ref: "95be76718faf7bc9272567a05899a176afe41be9"
+      resolved-ref: "95be76718faf7bc9272567a05899a176afe41be9"
       url: "https://github.com/p0g-stack/flutter-webui"
     source: git
-    version: "0.2.0"
+    version: "0.2.1"
   frontend_server_client:
     dependency: transitive
     description:
