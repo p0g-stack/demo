@@ -111,6 +111,7 @@ class _PluginsPageState extends State<PluginsPage> {
   static final _log = Logger('ui.plugins');
   static const shareText = 'Shared from the p0g demo (page 6).';
   static const copyText = 'Copied from the p0g demo (page 6).';
+  static const unavailable = 'unavailable here (no plugin for this platform)';
 
   String? _share;
   String? _camera;
@@ -135,6 +136,12 @@ class _PluginsPageState extends State<PluginsPage> {
     try {
       result = await call();
       _log.info('$what: $result');
+    } on MissingPluginException {
+      // The Flutter convention where a plugin has no implementation for
+      // this platform (permission_handler on AERA or Linux desktop): the
+      // capability is not there, which is not an error.
+      result = unavailable;
+      _log.info('$what: no implementation on this platform');
     } catch (e) {
       result = 'failed: $e';
       _log.warning('$what failed', e);
