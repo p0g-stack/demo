@@ -78,8 +78,8 @@ on the `web` branch, which GitHub Pages serves.
 The AERA plugin comes from `flutter_p0g build aera --debug` against
 flutter-aera's released kit (kit-3.47.5, debug only so far). CI puts it on
 the run's release as `Flutter-Demo-<version>.aerap` and on the `aera` branch.
-On AERA page 3 reports the Rust fallback: the crate has no linux-arm64 build
-in CI yet.
+The demo crate goes in it too, cross-built for aarch64 Linux
+(`gcc-aarch64-linux-gnu` as the linker).
 
 Tests are unit and widget tests against fake places (`dart test` in `core/`
 and `cli/`, `flutter test` in `app/`); the one end-to-end check is that web

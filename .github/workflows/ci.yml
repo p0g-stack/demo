@@ -7,7 +7,7 @@ on:
 
 # flutter_p0g for the module and web jobs: patched frb, build webui, build web.
 env:
-  FLUTTER_P0G_REF: 2fde4e34bdf124e435cda3a9a78ecaa98c9ef883
+  FLUTTER_P0G_REF: cf05f7bec076b051f619b412e9f4251433f12fd1
 
 jobs:
   build:
@@ -214,8 +214,8 @@ jobs:
   # The AERA plugin (.aerap), packed by flutter_p0g as a developer would:
   # `flutter build bundle` for linux-arm64 with flutter-aera's released
   # runtime kit (kit-3.47.5; only a debug kit is released so far, so this is
-  # a debug build). The demo crate has no linux-arm64 build here, so page 3
-  # reports the Rust fallback on AERA. The package goes on the `aera`
+  # a debug build), with the demo crate cross-built for aarch64 Linux in
+  # usr/lib. The package goes on the `aera`
   # branch and, as Flutter-Demo-<version>.aerap, on the run's release.
   aera:
     runs-on: ubuntu-latest
@@ -229,7 +229,10 @@ jobs:
           channel: stable
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown,aarch64-unknown-linux-gnu
+      # The crate for AERA's aarch64 Linux, which build aera packs into
+      # usr/lib beside the kit's glibc.
+      - run: sudo apt-get install -y -q gcc-aarch64-linux-gnu
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-expand,wasm-pack
@@ -256,6 +259,8 @@ jobs:
           sed -i "s/^version: .*/version: $base.$GITHUB_RUN_NUMBER+$GITHUB_RUN_NUMBER/" app/pubspec.yaml
       - run: flutter_p0g build aera --debug
         working-directory: app
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
       - name: Name the package
         run: |
           mkdir -p "$RUNNER_TEMP/aera"
