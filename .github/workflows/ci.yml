@@ -211,6 +211,103 @@ jobs:
             --title "demo $TAG" --notes-file changelog.md --latest \
             *.zip update.json changelog.md
 
+  # The AERA plugin (.aerap), packed by flutter_p0g as a developer would:
+  # `flutter build bundle` for linux-arm64 with flutter-aera's released
+  # runtime kit (kit-3.47.5; only a debug kit is released so far, so this is
+  # a debug build). The demo crate has no linux-arm64 build here, so page 3
+  # reports the Rust fallback on AERA. The package goes on the `aera`
+  # branch and, as Flutter-Demo-<version>.aerap, on the run's release.
+  aera:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the aera branch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.5
+          channel: stable
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-expand
+      - id: cache
+        run: echo "dir=$(dirname "$(dirname "$(readlink -f "$(command -v flutter)")")")/bin/cache/flutter_p0g" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.cache.outputs.dir }}
+          key: flutter-p0g-aera-${{ env.FLUTTER_P0G_REF }}
+      - run: dart pub global activate --source git https://github.com/p0g-stack/flutter_p0g --git-ref "$FLUTTER_P0G_REF"
+      - run: flutter_p0g precache --aera --aera-mode=debug
+      - run: bash tool/bootstrap.sh
+        env:
+          PLATFORMS: web
+      # Same version as the module: 0.<minor>.<run number>. build aera takes
+      # `build bundle` flags, which have no --build-name, so the pubspec is
+      # stamped for this build.
+      - id: version
+        run: |
+          base=$(sed -n 's/^version: *\([0-9]*\.[0-9]*\)\..*/\1/p' app/pubspec.yaml)
+          echo "name=$base.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+          sed -i "s/^version: .*/version: $base.$GITHUB_RUN_NUMBER+$GITHUB_RUN_NUMBER/" app/pubspec.yaml
+      - run: flutter_p0g build aera --debug
+        working-directory: app
+      - name: Name the package
+        run: |
+          mkdir -p "$RUNNER_TEMP/aera"
+          cp app/build/aera/demo-${{ steps.version.outputs.name }}.aerap \
+            "$RUNNER_TEMP/aera/Flutter-Demo-${{ steps.version.outputs.name }}.aerap"
+          cp app/build/aera/plugin.json "$RUNNER_TEMP/aera/"
+          cd "$RUNNER_TEMP/aera"
+          sha256sum *.aerap > SHA256SUMS
+          echo "# packed from p0g-stack/demo $GITHUB_SHA by flutter_p0g $FLUTTER_P0G_REF (kit-3.47.5 debug)" >> SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: demo-aera
+          path: ${{ runner.temp }}/aera/
+      - name: Publish aera branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          src="$GITHUB_SHA"
+          cd "$RUNNER_TEMP/aera"
+          git init -q -b aera
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git add -A
+          git commit -q -m "AERA plugin from $src"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" aera
+
+  # The .aerap joins the module job's release for this run. When the module
+  # job failed there is no release yet, so this one makes it (not latest:
+  # the manager's update button reads latest for the module zip).
+  aera-release:
+    needs: [aera, module]
+    if: >-
+      always() && needs.aera.result == 'success'
+      && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: demo-aera
+          path: ${{ runner.temp }}/aera
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          aerap=$(ls "$RUNNER_TEMP"/aera/*.aerap); name=$(basename "$aerap")
+          version=${name#Flutter-Demo-}; TAG=v${version%.aerap}
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # As in the module job: the tag goes up with git first.
+            git tag "$TAG" "$GITHUB_SHA"
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" "refs/tags/$TAG"
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "demo $TAG" --notes "AERA plugin only: the WebUI module build failed." --latest=false
+          fi
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "$aerap"
+
   # The plain web build, as a developer would make it with flutter_p0g:
   # stock web SDK, the Rust crate as single-threaded wasm, Squadron Web
   # Workers. Checked in headless Chromium from a plain static server (no

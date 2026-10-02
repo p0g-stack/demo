@@ -75,6 +75,12 @@ runs `tool/web_smoke.mjs` on it in headless Chromium from a plain static
 server (Rust in the page and in a Web Worker, no COOP/COEP), and publishes it
 on the `web` branch, which GitHub Pages serves.
 
+The AERA plugin comes from `flutter_p0g build aera --debug` against
+flutter-aera's released kit (kit-3.47.5, debug only so far). CI puts it on
+the run's release as `Flutter-Demo-<version>.aerap` and on the `aera` branch.
+On AERA page 3 reports the Rust fallback: the crate has no linux-arm64 build
+in CI yet.
+
 Tests are unit and widget tests against fake places (`dart test` in `core/`
 and `cli/`, `flutter test` in `app/`); the one end-to-end check is that web
 smoke check.
