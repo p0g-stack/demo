@@ -228,9 +228,11 @@ jobs:
           flutter-version: 3.47.5
           channel: stable
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-expand
+          tool: cargo-expand,wasm-pack
       - id: cache
         run: echo "dir=$(dirname "$(dirname "$(readlink -f "$(command -v flutter)")")")/bin/cache/flutter_p0g" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v4
@@ -238,7 +240,9 @@ jobs:
           path: ${{ steps.cache.outputs.dir }}
           key: flutter-p0g-aera-${{ env.FLUTTER_P0G_REF }}
       - run: dart pub global activate --source git https://github.com/p0g-stack/flutter_p0g --git-ref "$FLUTTER_P0G_REF"
-      - run: flutter_p0g precache --aera --aera-mode=debug
+      # --frb: bootstrap's tool/rust.sh generates the Dart bindings the app
+      # compiles against, whichever target it is built for.
+      - run: flutter_p0g precache --frb --aera --aera-mode=debug
       - run: bash tool/bootstrap.sh
         env:
           PLATFORMS: web
