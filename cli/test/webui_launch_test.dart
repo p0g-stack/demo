@@ -19,18 +19,21 @@ import 'package:demo_core/demo_core.dart';
 void main() {
   test('hello runs in the CLI launched through the root channel', () async {
     final module = await Directory.systemTemp.createTemp('p0g_module');
+    final data = await Directory.systemTemp.createTemp('p0g_data');
     RootChannelServer? server;
     RootChannel? channel;
     addTearDown(() async {
       await channel?.close();
       await server?.shutdown();
       await module.delete(recursive: true);
+      await data.delete(recursive: true);
     });
     final cli = File('bin/demo.dart').absolute.path;
     final bin = File('${module.path}/bin/demo');
     await bin.create(recursive: true);
     await bin.writeAsString(
       '#!/bin/sh\n'
+      'pwd -P > "${module.path}/host_cwd"\n'
       'cd "${Directory.current.path}"\n'
       'exec "${Platform.resolvedExecutable}" run "$cli" "\$@" --grace-ms 200\n',
     );
@@ -55,6 +58,7 @@ void main() {
       connect,
       moduleDir: module.path,
       app: 'demo',
+      dataDir: data.path,
     );
     final lines = <String>[];
     addTearDown(logTo(lines.add, level: Level.ALL));
@@ -72,6 +76,11 @@ void main() {
       hasLength(1),
     );
     expect(await worker.count(2).toList(), [1, 2]);
+    // The host starts in the data folder, not wherever the channel was.
+    expect(
+      File('${module.path}/host_cwd').readAsStringSync().trim(),
+      data.resolveSymbolicLinksSync(),
+    );
   }, timeout: const Timeout(Duration(minutes: 3)));
 }
 
