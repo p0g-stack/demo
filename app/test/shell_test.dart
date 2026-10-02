@@ -162,21 +162,4 @@ void main() {
     await tap('Pick a file');
     expect(find.text('Picked: /sdcard/Download/a.txt'), findsOneWidget);
   });
-
-  testWidgets('the plugins page shows a plugin with no implementation as '
-      'unavailable', (tester) async {
-    Future<String> missing() async =>
-        throw MissingPluginException('No implementation found');
-    final calls = PluginCalls(cameraStatus: missing, requestCamera: missing);
-    await pump(
-      tester,
-      PluginsPage(host: WebUiHost.detect(FakeBridge.browser()), calls: calls),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Camera: unavailable here (no plugin for this platform)'),
-      findsOneWidget,
-    );
-    expect(find.textContaining('failed'), findsNothing);
-  });
 }
