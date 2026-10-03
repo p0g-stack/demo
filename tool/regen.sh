@@ -5,7 +5,7 @@
 # reason. Files the demo adds are free under app/lib/pages/, app/test/, core/,
 # cli/lib/src/commands/ and tool/. Needs mason (mason_cli 0.1.4) and dart.
 set -euo pipefail
-BRICKS_REF=08ad5a01fe6e09f3562ca7a7460695cd7e76a301
+BRICKS_REF=42ce4e546e827471f4dc11f8c84b70e4d2fa741d
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 work="$(mktemp -d)"

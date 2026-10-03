@@ -7,7 +7,7 @@ on:
 
 # flutter_p0g for the module and web jobs: patched frb, build webui, build web.
 env:
-  FLUTTER_P0G_REF: 1f220a4086ebf2749f0a66f2a64b3d3c4b4a2c75
+  FLUTTER_P0G_REF: a3f2d74081426b5e043b0acb470291cf37114864
 
 jobs:
   build:
