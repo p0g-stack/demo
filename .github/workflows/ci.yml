@@ -7,7 +7,7 @@ on:
 
 # flutter_p0g for the module and web jobs: patched frb, build webui, build web.
 env:
-  FLUTTER_P0G_REF: b280d789e4b647feb744e99af3bd6bc6d8dbfeba
+  FLUTTER_P0G_REF: 1f220a4086ebf2749f0a66f2a64b3d3c4b4a2c75
 
 jobs:
   build:
@@ -164,17 +164,40 @@ jobs:
         run: |
           base=$(sed -n 's/^version: *\([0-9]*\.[0-9]*\)\..*/\1/p' app/pubspec.yaml)
           echo "name=$base.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+      # Two builds: the release (and its update.json) is arm64-v8a only,
+      # what phones run; the module branch carries arm64-v8a+x86_64 for
+      # the lab's x86_64 emulators. SHA256SUMS names both.
       - run: >
           flutter_p0g build webui --device-rust-libs="$PWD/../build/native-android"
           --build-name=${{ steps.version.outputs.name }} --build-number=$GITHUB_RUN_NUMBER
         working-directory: app
+      - run: |
+          mkdir -p "$RUNNER_TEMP/release"
+          cp app/build/webui/*.zip app/build/webui/update.json app/build/webui/changelog.md "$RUNNER_TEMP/release/"
+      - run: >
+          flutter_p0g build webui --device-rust-libs="$PWD/../build/native-android"
+          --abi=arm64-v8a,x86_64
+          --build-name=${{ steps.version.outputs.name }} --build-number=$GITHUB_RUN_NUMBER
+        working-directory: app
+      - name: Name both zips
+        run: |
+          mkdir -p "$RUNNER_TEMP/lab"
+          for z in app/build/webui/*.zip; do
+            cp "$z" "$RUNNER_TEMP/lab/$(basename "$z" .zip)-arm64-v8a+x86_64.zip"
+          done
+          cd "$RUNNER_TEMP"
+          { echo "# release asset, arm64-v8a (update.json points here)"
+            (cd release && sha256sum *.zip)
+            echo "# module branch, arm64-v8a+x86_64 (lab emulators)"
+            (cd lab && sha256sum *.zip); } > SHA256SUMS
+          echo "# packed from p0g-stack/demo $GITHUB_SHA by flutter_p0g $FLUTTER_P0G_REF" >> SHA256SUMS
+          cp SHA256SUMS release/ && cat SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: demo-webui-module
           path: |
-            app/build/webui/*.zip
-            app/build/webui/update.json
-            app/build/webui/changelog.md
+            ${{ runner.temp }}/release/
+            ${{ runner.temp }}/lab/*.zip
       # The zip on a branch too, like native-android: one commit, replaced
       # on each push to main. update.json and changelog.md (module.prop's
       # updateJson) go with it; a GitHub release publishing all three is
@@ -183,10 +206,9 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           src="$GITHUB_SHA"
-          mkdir -p "$RUNNER_TEMP/module" && cp app/build/webui/*.zip app/build/webui/update.json app/build/webui/changelog.md "$RUNNER_TEMP/module/"
+          mkdir -p "$RUNNER_TEMP/module"
+          cp "$RUNNER_TEMP"/lab/*.zip "$RUNNER_TEMP"/SHA256SUMS "$RUNNER_TEMP"/release/update.json "$RUNNER_TEMP"/release/changelog.md "$RUNNER_TEMP/module/"
           cd "$RUNNER_TEMP/module"
-          sha256sum *.zip > SHA256SUMS
-          echo "# packed from p0g-stack/demo $src by flutter_p0g $FLUTTER_P0G_REF" >> SHA256SUMS
           git init -q -b module
           git config user.name github-actions
           git config user.email github-actions@users.noreply.github.com
@@ -206,10 +228,10 @@ jobs:
         run: |
           git tag "$TAG" "$GITHUB_SHA"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" "refs/tags/$TAG"
-          cd app/build/webui
+          cd "$RUNNER_TEMP/release"
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "demo $TAG" --notes-file changelog.md --latest \
-            *.zip update.json changelog.md
+            *.zip update.json changelog.md SHA256SUMS
 
   # The AERA plugin (.aerap), packed by flutter_p0g as a developer would:
   # `flutter build bundle` for linux-arm64 with flutter-aera's released
