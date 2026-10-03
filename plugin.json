@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "id": "demo",
+  "name": "Demo",
+  "version": "0.1.53",
+  "description": "The demo GUI. Flutter on top of the core.",
+  "type": "ui-runtime",
+  "entry": "main",
+  "executable": "usr/bin/aera-plugin",
+  "min_host_api": 3,
+  "protocol_version": 3,
+  "payload": "runtime.xz",
+  "payload_url": "https://localhost/runtime.xz",
+  "payload_size": 41583592,
+  "payload_sha256": "86e5837d267b0996ac40f24642d26982040b0cd26cdb0aa2a6ea442443fa5778",
+  "expanded_size": 212858539,
+  "expanded_sha256": "165055d320eaa2d11d150b75d7f67571a090399499fa9122ecf8a47a2f4aa61d",
+  "member_count": 43,
+  "permissions": [
+    "display",
+    "touch-input",
+    "pixel-surface",
+    "gpu-acceleration"
+  ]
+}
