@@ -1,0 +1,5 @@
+# release asset, arm64-v8a (update.json points here)
+009d9384c4341e71703e673911f6498ac6961a90e5f8ddf94642470efe16ef10  demo-v0.1.53.zip
+# module branch, arm64-v8a+x86_64 (lab emulators)
+9dcac16e34c09e04c37d60628659ad55d227f7f5ca93edc6b9c36c459cdd8850  demo-v0.1.53-arm64-v8a+x86_64.zip
+# packed from p0g-stack/demo df86e228dd8223c4c9f58adbbc11ac6a0e3838b2 by flutter_p0g a3f2d74081426b5e043b0acb470291cf37114864
