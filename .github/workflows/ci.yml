@@ -229,9 +229,18 @@ jobs:
           git tag "$TAG" "$GITHUB_SHA"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" "refs/tags/$TAG"
           cd "$RUNNER_TEMP/release"
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
-            --title "demo $TAG" --notes-file changelog.md --latest \
-            *.zip update.json changelog.md SHA256SUMS
+          # A re-run after aera-release made an AERA-only release for this
+          # tag (module failed the first time) completes that release.
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber \
+              *.zip update.json changelog.md SHA256SUMS
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --notes-file changelog.md --latest
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "demo $TAG" --notes-file changelog.md --latest \
+              *.zip update.json changelog.md SHA256SUMS
+          fi
 
   # The AERA plugin (.aerap), packed by flutter_p0g as a developer would:
   # `flutter build bundle` for linux-arm64 with flutter-aera's released
