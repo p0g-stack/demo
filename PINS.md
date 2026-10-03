@@ -1,0 +1,14 @@
+# Pins
+
+Pins: what this repo holds fixed, where, and who moves it. Values read from the repo at the commit that added this file; the bump order across repos is /mnt/project-files/proposals/flutter-bump-checklist.md (project files).
+
+| What | Where | Current | Bumped by |
+| --- | --- | --- | --- |
+| flutter_p0g (the tool) | `.github/workflows/ci.yml` `env.FLUTTER_P0G_REF` | `b280d78` | demo |
+| bricks (p0g_app the app is generated from) | `tool/regen.sh` `BRICKS_REF` | `08ad5a0` (p0g_app 0.8.7) | demo, then `tool/regen.sh` |
+| squadron_process | `core/`, `app/`, `cli/` `pubspec.yaml` `ref:` | `28c37ce` | copied from the brick by regen |
+| flutter-webui | same files, `ref:` | `74d0575` | copied from the brick by regen |
+| flutter_rust_bridge Dart / Rust | `core/pubspec.yaml` `ref:` / `rust/Cargo.toml` | `848e438` / `=2.14.0-beta.2` | brick / demo |
+| p0g_lints | `analysis_options.yaml` `ref:` | `8e3d47f` | copied from the brick |
+| AERA runtime kit | implicit: flutter_p0g fetches release `kit-3.47.5` of flutter-aera (`aera` job) | debug kit only | flutter-aera's Kit workflow. **Not hash-pinned**, and the tag is clobbered on republish |
+| Flutter | `.github/workflows/ci.yml` `flutter-version` (four jobs) | 3.47.5 | demo when Flutter moves |
