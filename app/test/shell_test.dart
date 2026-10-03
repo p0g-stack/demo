@@ -179,4 +179,29 @@ void main() {
     );
     expect(find.textContaining('failed'), findsNothing);
   });
+
+  testWidgets('the plugins page shows a notification', (tester) async {
+    final shown = <String>[];
+    final calls = PluginCalls(
+      cameraStatus: () async => 'denied',
+      notify: (text) async {
+        shown.add(text);
+        return 'shown';
+      },
+    );
+    await pump(
+      tester,
+      PluginsPage(host: WebUiHost.detect(FakeBridge.webuix()), calls: calls),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('On WebUI: flutter_local_notifications_webui'),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.text('Show notification'));
+    await tester.tap(find.text('Show notification'));
+    await tester.pumpAndSettle();
+    expect(shown, hasLength(1));
+    expect(find.text('Notification: shown'), findsOneWidget);
+  });
 }

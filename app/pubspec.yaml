@@ -25,6 +25,7 @@ dependencies:
   demo_core: any
   # Page 6 (Plugins); on WebUI flutter_p0g adds their *_webui packages.
   file_selector: ^1.1.0
+  flutter_local_notifications: ^22.3.1
   permission_handler: ^13.0.2
   share_plus: ^13.3.0
 

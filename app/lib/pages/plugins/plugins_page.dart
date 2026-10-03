@@ -2,6 +2,7 @@ import 'package:demo_core/demo_core.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_webui_client/flutter_webui_client.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
@@ -18,6 +19,7 @@ final class PluginCalls {
     this.copy = _copy,
     this.paste = _paste,
     this.pickFile = _pickFile,
+    this.notify = _notify,
   });
 
   final Future<String> Function(String text) share;
@@ -33,6 +35,10 @@ final class PluginCalls {
   /// The picked file's path, or null when the pick was cancelled.
   final Future<String?> Function() pickFile;
 
+  /// Asks for the notification permission, then shows [text] as a
+  /// notification when it is granted. Returns what happened.
+  final Future<String> Function(String text) notify;
+
   static Future<String> _share(String text) async =>
       (await SharePlus.instance.share(ShareParams(text: text))).status.name;
   static Future<String> _cameraStatus() async =>
@@ -44,6 +50,20 @@ final class PluginCalls {
   static Future<String?> _paste() async =>
       (await Clipboard.getData(Clipboard.kTextPlain))?.text;
   static Future<String?> _pickFile() async => (await openFile())?.path;
+
+  static final _notifications = FlutterLocalNotificationsPlugin();
+  static Future<String> _notify(String text) async {
+    final permission = await Permission.notification.request();
+    if (!permission.isGranted) return 'permission ${permission.name}';
+    await _notifications.initialize(
+      settings: const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        linux: LinuxInitializationSettings(defaultActionName: 'Open'),
+      ),
+    );
+    await _notifications.show(id: 6, title: 'p0g demo', body: text);
+    return 'shown';
+  }
 }
 
 /// A stock plugin and how webui-packages answers it on WebUI.
@@ -79,6 +99,13 @@ const clipboardRow = PluginRow(
   inBrowser: 'the browser\'s clipboard',
 );
 
+const notificationRow = PluginRow(
+  'flutter_local_notifications',
+  'flutter_local_notifications_webui: an Android notification from the '
+      'module\'s own app, after permission_handler asks for it',
+  inBrowser: 'the browser\'s notification prompt',
+);
+
 const fileRow = PluginRow(
   'file_selector',
   'file_selector_webui: the WebView\'s file chooser',
@@ -111,6 +138,7 @@ class _PluginsPageState extends State<PluginsPage> {
   static final _log = Logger('ui.plugins');
   static const shareText = 'Shared from the p0g demo (page 6).';
   static const copyText = 'Copied from the p0g demo (page 6).';
+  static const notifyText = 'A notification from the p0g demo (page 6).';
   static const unavailable = 'unavailable here (no plugin for this platform)';
 
   String? _share;
@@ -118,6 +146,7 @@ class _PluginsPageState extends State<PluginsPage> {
   String? _copied;
   String? _pasted;
   String? _picked;
+  String? _notified;
   var _busy = false;
 
   @override
@@ -163,8 +192,8 @@ class _PluginsPageState extends State<PluginsPage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text(
-            'The app calls share_plus, permission_handler, the clipboard and '
-            'file_selector as on any '
+            'The app calls share_plus, permission_handler, the clipboard, '
+            'flutter_local_notifications and file_selector as on any '
             'platform. Running in ${webui ? 'a WebUI host' : 'a browser tab'}, '
             'so ${webui ? 'their *_webui packages' : 'the stock web packages'} '
             'answer.',
@@ -250,6 +279,28 @@ class _PluginsPageState extends State<PluginsPage> {
               ),
               if (_copied != null) Text('Copy: $_copied'),
               if (_pasted != null) Text('Pasted: $_pasted'),
+            ],
+          ),
+        ),
+        Section(
+          title: notificationRow.plugin,
+          subtitle: webui
+              ? 'On WebUI: ${notificationRow.webui}'
+              : 'Here: ${notificationRow.inBrowser}',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              OutlinedButton(
+                onPressed: _busy
+                    ? null
+                    : () => _run(
+                        'notify',
+                        () => widget.calls.notify(notifyText),
+                        (r) => _notified = r,
+                      ),
+                child: const Text('Show notification'),
+              ),
+              if (_notified != null) Text('Notification: $_notified'),
             ],
           ),
         ),
