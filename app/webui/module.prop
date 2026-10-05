@@ -4,4 +4,5 @@ version=v$(FLUTTER_BUILD_NAME)
 versionCode=$(FLUTTER_BUILD_NUMBER)
 author=
 description=The demo GUI. Flutter on top of the core.
+webuiIcon=icons/Icon-maskable-512.png
 updateJson=https://github.com/p0g-stack/demo/releases/latest/download/update.json
