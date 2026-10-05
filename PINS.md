@@ -10,5 +10,5 @@ Pins: what this repo holds fixed, where, and who moves it. Values read from the 
 | flutter-webui | same files, `ref:` | `a455782` | copied from the brick by regen |
 | flutter_rust_bridge Dart / Rust | `core/pubspec.yaml` `ref:` / `rust/Cargo.toml` | `848e438` / `=2.14.0-beta.2` | brick / demo |
 | p0g_lints | `analysis_options.yaml` `ref:` | `8e3d47f` | copied from the brick |
-| AERA runtime kit | implicit: flutter_p0g fetches release `kit-3.47.5` of flutter-aera (`aera` job) | debug kit only | flutter-aera's Kit workflow. **Not hash-pinned**, and the tag is clobbered on republish |
+| AERA runtime kit | `.github/workflows/ci.yml` `env.AERA_KIT_SHA256` (arm64 debug asset of flutter-aera release `kit-3.47.5`) | `12b9a13` (flutter-aera `d1403d6`, own engines, padding through the engine) | demo, after flutter-aera's Kit workflow republishes (the tag is clobbered, so the old hash then fails the `aera` job) |
 | Flutter | `.github/workflows/ci.yml` `flutter-version` (four jobs) | 3.47.5 | demo when Flutter moves |
