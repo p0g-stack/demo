@@ -1,7 +1,10 @@
 {
   "title": "Demo",
-  "backInterceptor": "javascript",
+  "backInterceptor": "native",
   "exitConfirm": false,
   "killShellWhenBackground": false,
-  "pullToRefresh": false
+  "pullToRefresh": false,
+  "permissions": [
+    "kernelsu.permission.SHELL"
+  ]
 }
