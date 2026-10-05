@@ -7,7 +7,7 @@ on:
 
 # flutter_p0g for the module and web jobs: patched frb, build webui, build web.
 env:
-  FLUTTER_P0G_REF: fcb1590a66f82742b775cfdfb9d50cf4a8a50fed
+  FLUTTER_P0G_REF: a4fadbf69571fa3e8abff4bf5f54adfbcffcaf60
   # flutter-aera's arm64 debug runtime kit (kit-3.47.5, from flutter-aera d1403d6).
   AERA_KIT_SHA256: 12b9a131467a3737a8b1191c69d239039a66498bf638f14095741db74ba44e60
 
