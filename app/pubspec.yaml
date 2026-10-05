@@ -21,7 +21,7 @@ dependencies:
     git:
       url: https://github.com/p0g-stack/flutter-webui
       path: packages/flutter_webui_client
-      ref: 60c0b775773ae2abfce8ed5b333aab5643483972
+      ref: 8951e5f59eb5492b55da89a23edb2b43d87d7023
   demo_core: any
   # Page 6 (Plugins); on WebUI flutter_p0g adds their *_webui packages.
   file_selector: ^1.1.0
