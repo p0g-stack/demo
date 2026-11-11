@@ -23,9 +23,9 @@ runs at https://p0g-stack.github.io/demo/.
 | 3 | Rust | the demo crate (`rust/`) through flutter_p0g's patched frb in every place: single-threaded wasm in the page and in a Web Worker, native in an isolate and the root process; what each copy was built for, its load time, Rust against Dart; the Dart version where the crate can't load | runs on plain web (Web Workers need the frb worker patch, sent to flutter_p0g as its 0003) |
 | 4 | Lifecycle | a five-minute task: hidden keeps going (ticks stamped by the place's clock), closed stops (the next start reports where it ended) | runs |
 | 5 | Shell basics | insets, keyboard, back and exit, light and dark through Flutter's own APIs; what this host gives for each and what every known manager gives (flutter_webui_client's fake hosts), with the fallback | runs |
-| 6 | Plugins | pick, save, share, URL, clipboard through `webui-packages` | stub: each plugin says "unavailable here" until webui-packages ships it |
+| 6 | Plugins | share, the camera permission, copy and paste, pick a file, and a notification through the stock plugins, with the route `webui-packages` gives each on WebUI | runs |
 
-The workspace is exactly what the `p0g_app` brick (bricks @ c1e694b, 0.8.12,
+The workspace is exactly what the `p0g_app` brick (bricks @ 0154a7e, 0.8.13,
 with `rust`) generates, plus the pages (`app/lib/pages/`, opened from a panel on the
 brick's home), the demo's core (`DemoService`, the `partitions` objective,
 the page places, the Rust loader), the crate's `demo` module and two CLI

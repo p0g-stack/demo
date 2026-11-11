@@ -5,7 +5,7 @@ Pins: what this repo holds fixed, where, and who moves it. Values read from the 
 | What | Where | Current | Bumped by |
 | --- | --- | --- | --- |
 | flutter_p0g (the tool) | `.github/workflows/ci.yml` `env.FLUTTER_P0G_REF` | `e739ada` | demo |
-| bricks (p0g_app the app is generated from) | `tool/regen.sh` `BRICKS_REF` | `c1e694b` (p0g_app 0.8.12) | demo, then `tool/regen.sh` |
+| bricks (p0g_app the app is generated from) | `tool/regen.sh` `BRICKS_REF` | `0154a7e` (p0g_app 0.8.13) | demo, then `tool/regen.sh` |
 | squadron_process | `core/`, `app/`, `cli/` `pubspec.yaml` `ref:` | `28c37ce` | copied from the brick by regen |
 | flutter-webui | same files, `ref:` | `8951e5f` | copied from the brick by regen |
 | flutter_rust_bridge Dart / Rust | `core/pubspec.yaml` `ref:` / `rust/Cargo.toml` | `848e438` / `=2.14.0-beta.2` | brick / demo |
