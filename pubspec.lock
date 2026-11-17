@@ -178,7 +178,7 @@ packages:
     source: hosted
     version: "0.3.5+5"
   crypto:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: crypto
       sha256: c8ea0233063ba03258fbcf2ca4d6dadfefe14f02fab57702265467a19f27fadf
@@ -380,13 +380,11 @@ packages:
     source: sdk
     version: "0.0.0"
   flutter_rust_bridge:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      path: frb_dart
-      ref: "848e438c561491adcc16cbf8b33bb61e541bd475"
-      resolved-ref: "848e438c561491adcc16cbf8b33bb61e541bd475"
-      url: "https://github.com/fzyzcjy/flutter_rust_bridge"
-    source: git
+      path: ".dart_tool/p0g/frb/frb_dart"
+      relative: true
+    source: path
     version: "2.14.0-beta.2"
   flutter_test:
     dependency: transitive
@@ -402,8 +400,8 @@ packages:
     dependency: transitive
     description:
       path: "packages/flutter_webui_client"
-      ref: "8951e5f59eb5492b55da89a23edb2b43d87d7023"
-      resolved-ref: "8951e5f59eb5492b55da89a23edb2b43d87d7023"
+      ref: "374766e3913972aedca2e0a7778d88b5d398459a"
+      resolved-ref: "374766e3913972aedca2e0a7778d88b5d398459a"
       url: "https://github.com/p0g-stack/flutter-webui"
     source: git
     version: "0.1.0"
@@ -411,8 +409,8 @@ packages:
     dependency: transitive
     description:
       path: "packages/flutter_webui_root"
-      ref: "8951e5f59eb5492b55da89a23edb2b43d87d7023"
-      resolved-ref: "8951e5f59eb5492b55da89a23edb2b43d87d7023"
+      ref: "374766e3913972aedca2e0a7778d88b5d398459a"
+      resolved-ref: "374766e3913972aedca2e0a7778d88b5d398459a"
       url: "https://github.com/p0g-stack/flutter-webui"
     source: git
     version: "0.2.3"
@@ -632,8 +630,17 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  patched_source:
+    dependency: "direct dev"
+    description:
+      path: "packages/patched_source"
+      ref: d3b6de00bd5e88910b9b42036a819b06159085f5
+      resolved-ref: d3b6de00bd5e88910b9b42036a819b06159085f5
+      url: "https://github.com/p0g-stack/flutter_p0g"
+    source: git
+    version: "0.1.0"
   path:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: path
       sha256: "75cca69d1490965be98c73ceaea117e8a04dd21217b37b292c9ddbec0d955bc5"
@@ -880,10 +887,10 @@ packages:
   squadron:
     dependency: "direct overridden"
     description:
-      path: ".dart_tool/squadron_process/squadron-4ab7f15a5d6d"
+      path: ".dart_tool/third_party/squadron-fd5becc4a480"
       relative: true
     source: path
-    version: "7.4.4"
+    version: "7.4.5"
   squadron_builder:
     dependency: transitive
     description:
@@ -896,8 +903,8 @@ packages:
     dependency: transitive
     description:
       path: "."
-      ref: "28c37ced3034695697802b17ee818a11a36411d3"
-      resolved-ref: "28c37ced3034695697802b17ee818a11a36411d3"
+      ref: "8f639eb8d2e200866ace17cca03c9d7c4705f5f9"
+      resolved-ref: "8f639eb8d2e200866ace17cca03c9d7c4705f5f9"
       url: "https://github.com/p0g-stack/squadron_process"
     source: git
     version: "0.1.0"
@@ -1110,13 +1117,21 @@ packages:
     source: hosted
     version: "7.1.0"
   yaml:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: yaml
       sha256: f67cdd8e07d3c6329146aaef1ba043542b3134c12489f553ca9a7435d1068aea
       url: "https://pub.dev"
     source: hosted
     version: "3.1.4"
+  yaml_edit:
+    dependency: transitive
+    description:
+      name: yaml_edit
+      sha256: "07c9e63ba42519745182b88ca12264a7ba2484d8239958778dfe4d44fe760488"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.4"
 sdks:
   dart: ">=3.13.4 <4.0.0"
   flutter: ">=3.47.0"

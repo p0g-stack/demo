@@ -9,7 +9,9 @@ export 'package:logging/logging.dart' show Level, LogRecord, Logger;
 
 export 'src/facts/facts.dart';
 export 'src/log.dart';
-export 'src/native/native.dart' show loadNative, sha256Hex;
+export 'src/native/native.dart'
+    show loadNative, NativeLoadFailure, nativeLoadFailure;
+export 'src/rust/api/digest.dart' show sha256Hex;
 export 'src/places/webui_launcher.dart';
 export 'src/service/hello_service.dart';
 export 'src/strategy/digest.dart';

@@ -25,8 +25,9 @@ runs at https://p0g-stack.github.io/demo/.
 | 5 | Shell basics | insets, keyboard, back and exit, light and dark through Flutter's own APIs; what this host gives for each and what every known manager gives (flutter_webui_client's fake hosts), with the fallback | runs |
 | 6 | Plugins | share, the camera permission, copy and paste, pick a file, and a notification through the stock plugins, with the route `webui-packages` gives each on WebUI | runs |
 
-The workspace is exactly what the `p0g_app` brick (bricks @ 0154a7e, 0.8.13,
-with `rust`) generates, plus the pages (`app/lib/pages/`, opened from a panel on the
+The workspace is exactly what the `p0g_app` brick (0.9.1, pinned by
+`BRICKS_REF` in `.github/workflows/ci.yml`, with `rust` and `sample`) generates,
+plus the pages (`app/lib/pages/`, opened from a panel on the
 brick's home), the demo's core (`DemoService`, the `partitions` objective,
 the page places, the Rust loader), the crate's `demo` module and two CLI
 commands. Edits to generated files are insertions at the brick's `// p0g:`
@@ -40,17 +41,17 @@ page at a running `demo serve`: `?place=<port>&token=<token>`.
 
 ## Run
 
-Pinned Flutter 3.47.5.
+Pinned Flutter 3.47.9 (Dart 3.13.7).
 
 ```sh
-flutter_p0g precache --frb                # before bootstrap, for page 3's wasm (else native only)
+flutter_p0g precache --frb --no-webui      # required verified FRB cache before bootstrap
 PLATFORMS=web bash tool/bootstrap.sh      # patched Squadron, Rust (tool/rust.sh), codegen, web/, web workers, format
 (cd app && flutter run -d chrome)         # plain web
 (cd app && flutter_p0g build web --release)  # plain web, Rust wasm and Web Workers in build/web
 dart run cli/bin/demo.dart facts          # what the CLI's own process can do
 dart run cli/bin/demo.dart partitions     # the Strategy page's objective, from the CLI
 dart run cli/bin/demo.dart serve          # root process; first line {"squadron_process":1,"port":..,"token":..}
-tool/regen.sh                             # still what p0g_app generates? (needs mason)
+BRICKS_REF=<full-sha-from-ci.yml> bash tool/regen.sh  # needs mason; never overwrites the app
 ```
 
 The WebUI module (`app/webui/` and `app/aera/` are what `flutter_p0g create`
@@ -63,21 +64,24 @@ flutter_p0g precache --frb --webui --dart-android --dart-android-abi=arm64-v8a,x
 (cd app && flutter_p0g build webui --device-rust-libs="$PWD/../build/native-android")
 ```
 
-CI packs the same zip on every push to main and publishes it on the `module`
-branch with its SHA256SUMS, `update.json` and `changelog.md`. `updateJson` in
-`app/webui/module.prop` points managers' update button at the latest GitHub
-release, so a release carries those three files: CI publishes one on every
-push to main, `v0.<minor>.<run number>` (the run number is also the
-versionCode), so the zip is `demo-v0.<minor>.<run>.zip`.
+CI validates every push to main and uploads candidate artifacts; it does not
+publish a release or update artifact branches. The separate manual
+`promote.yml` requires the successful source validation run, manager lab
+qualification and the exact successful AERA Kit attempt. It promotes those
+same bytes without rebuilding. `updateJson` in `app/webui/module.prop` points
+at the latest promoted release. Versions remain `v0.<minor>.<source run number>`
+(the source run number is also the versionCode).
 
-CI also builds plain web with `flutter_p0g build web --base-href /demo/`,
-runs `tool/web_smoke.mjs` on it in headless Chromium from a plain static
-server (Rust in the page and in a Web Worker, no COOP/COEP), and publishes it
-on the `web` branch, which GitHub Pages serves.
+CI builds plain web under `/demo/`. Local qualification runs both JavaScript
+and dart2wasm builds through the unchanged `tool/web_smoke.mjs`: Rust must run
+inline and in a Web Worker, and the worker digest must select `rust_sha2`,
+without COOP/COEP. Only the qualified candidate's site is eligible for the
+`web` branch served by GitHub Pages.
 
 The AERA plugin comes from `flutter_p0g build aera --debug` against
-flutter-aera's released kit (kit-3.47.5, debug only so far). CI puts it on
-the run's release as `Flutter-Demo-<version>.aerap` and on the `aera` branch.
+flutter-aera's source-tagged 3.47.9 kit (debug only), verified against the
+committed SHA256 in CI. The candidate contains `Flutter-Demo-<version>.aerap`;
+only promotion publishes it to a release and the `aera` branch.
 The demo crate goes in it too, cross-built for aarch64 Linux
 (`gcc-aarch64-linux-gnu` as the linker).
 
