@@ -1,21 +1,28 @@
 name: ci
 
+# Validation only: builds and checks every artifact and records them in a
+# candidate (candidate.json). Nothing here publishes: no release, tag or
+# branch push. promote.yml publishes a successful main push or manual run's
+# artifacts, unchanged, once the candidate is qualified.
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 # flutter_p0g for the module and web jobs: patched frb, build webui, build web.
 env:
   FLUTTER_P0G_REF: e739adaef1b6d3c94ec3f13212233591aa4cd8f0
   # flutter-aera's arm64 debug runtime kit (kit-3.47.5, from flutter-aera d1403d6).
+  AERA_KIT_URL: https://github.com/p0g-stack/flutter-aera/releases/download/kit-3.47.5/flutter-aera-kit-linux-arm64-debug-3.47.5.tar.xz
   AERA_KIT_SHA256: 12b9a131467a3737a8b1191c69d239039a66498bf638f14095741db74ba44e60
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # the native-android branch
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -79,25 +86,17 @@ jobs:
         working-directory: rust
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+      # The artifact is the native-android branch's content as promote.yml
+      # commits it, checksums included.
+      - name: Checksums
+        run: |
+          cd build/native-android
+          sha256sum -- */libdemo_native.so > SHA256SUMS
+          echo "# built from p0g-stack/demo $GITHUB_SHA" >> SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: demo-native-android
           path: build/native-android
-      # The same libraries on a branch, since Actions artifacts can't be
-      # fetched from everywhere; one commit, replaced on each push to main.
-      - name: Publish native-android branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          src="$GITHUB_SHA"
-          cd build/native-android
-          sha256sum */libdemo_native.so > SHA256SUMS
-          echo "# built from p0g-stack/demo $src" >> SHA256SUMS
-          git init -q -b native-android
-          git config user.name github-actions
-          git config user.email github-actions@users.noreply.github.com
-          git add -A
-          git commit -q -m "libdemo_native.so for Android from $src"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" native-android
 
   # The WebUI module, packed by flutter_p0g as a developer would: patched frb
   # (native and single-threaded wasm), flutter-webui, the Dart Android kits,
@@ -105,8 +104,9 @@ jobs:
   module:
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # the module branch
+    outputs:
+      version: ${{ steps.version.outputs.name }}
+      signing: ${{ steps.signing.outputs.signing }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -134,21 +134,34 @@ jobs:
         with:
           name: demo-native-android
           path: build/native-android
-      # The module's app-plane APK is signed with a stable key when the repo
-      # has one (secrets WEBUI_KEYSTORE_B64, a base64 PKCS12 keystore, and
-      # WEBUI_KEYSTORE_PASSWORD, store and key password alike, alias
-      # WEBUI_KEY_ALIAS); without them flutter_p0g signs with a fresh debug
-      # key, and an update over an installed module app fails. The files go
-      # in android/ and the runner's temp dir, never webui/: build webui
-      # zips everything in webui/ into the public module.
+      # The module's app-plane APK is signed with the stable key (secrets
+      # WEBUI_KEYSTORE_B64, a base64 PKCS12 keystore, and
+      # WEBUI_KEYSTORE_PASSWORD, store and key password alike). On main the
+      # key is required: a main run is a promotion candidate, and an update
+      # over an installed module app fails with any other key. Elsewhere
+      # (pull requests) flutter_p0g signs with a fresh debug key; such runs
+      # are never promotable. The files go in android/ and the runner's temp
+      # dir, never webui/: build webui zips everything in webui/ into the
+      # public module.
       - name: Signing key
+        id: signing
         env:
           KEYSTORE_B64: ${{ secrets.WEBUI_KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.WEBUI_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.WEBUI_KEY_ALIAS }}
+          # The alias is not secret: v0.1.49 to v0.1.59 were signed through
+          # `webui` (certificate SHA-256 03dd05c9...d846, CN=p0g-demo, pinned
+          # in .github/webui-signing-cert.sha256). A wrong alias fails the
+          # build, and promote.yml checks the APK against that certificate.
+          KEY_ALIAS: ${{ secrets.WEBUI_KEY_ALIAS || 'webui' }}
+          ON_MAIN: ${{ github.ref == 'refs/heads/main' }}
         run: |
-          if [ -z "$KEYSTORE_B64" ]; then
-            echo "::warning::No WEBUI_KEYSTORE_B64 secret: the app-plane APK gets a debug key."
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            if [ "$ON_MAIN" = true ]; then
+              echo "::error::WEBUI_KEYSTORE_B64 and WEBUI_KEYSTORE_PASSWORD are required on main: a candidate is never signed with a debug key."
+              exit 1
+            fi
+            echo "::warning::No WEBUI_KEYSTORE_B64/WEBUI_KEYSTORE_PASSWORD: the app-plane APK gets a debug key (not promotable)."
+            echo "signing=debug" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.p12"
@@ -156,104 +169,69 @@ jobs:
           {
             echo "storeFile=$RUNNER_TEMP/release.p12"
             echo "storePassword=$KEYSTORE_PASSWORD"
-            echo "keyAlias=${KEY_ALIAS:-webui}"
+            echo "keyAlias=$KEY_ALIAS"
             echo "keyPassword=$KEYSTORE_PASSWORD"
           } > app/android/key.properties
-      # Each push to main is a release: 0.<minor> from the app's pubspec,
-      # the run number as patch and versionCode, so the manager's update
-      # button sees every one as newer.
+          echo "signing=release" >> "$GITHUB_OUTPUT"
+      # Each candidate is a version: 0.<minor> from the app's pubspec, this
+      # run's number as patch and versionCode, so the manager's update
+      # button sees every promoted one as newer. promote.yml keeps them.
       - id: version
         run: |
           base=$(sed -n 's/^version: *\([0-9]*\.[0-9]*\)\..*/\1/p' app/pubspec.yaml)
           echo "name=$base.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
-      # Two builds: the release (and its update.json) is arm64-v8a only,
-      # what phones run; the module branch carries arm64-v8a+x86_64 for
-      # the lab's x86_64 emulators. SHA256SUMS names both.
+      # Two builds: release/ (the GitHub release and its update.json) is
+      # arm64-v8a only, what phones run; lab/ (the module branch) is
+      # arm64-v8a+x86_64 for the lab's x86_64 emulators. Each directory has
+      # its own SHA256SUMS listing only its files.
       - run: >
           flutter_p0g build webui --device-rust-libs="$PWD/../build/native-android"
-          --build-name=${{ steps.version.outputs.name }} --build-number=$GITHUB_RUN_NUMBER
+          --build-name=${{ steps.version.outputs.name }} --build-number="$GITHUB_RUN_NUMBER"
         working-directory: app
       - run: |
-          mkdir -p "$RUNNER_TEMP/release"
-          cp app/build/webui/*.zip app/build/webui/update.json app/build/webui/changelog.md "$RUNNER_TEMP/release/"
+          mkdir -p "$RUNNER_TEMP/webui/release"
+          cp app/build/webui/*.zip app/build/webui/update.json app/build/webui/changelog.md "$RUNNER_TEMP/webui/release/"
       - run: >
           flutter_p0g build webui --device-rust-libs="$PWD/../build/native-android"
           --abi=arm64-v8a,x86_64
-          --build-name=${{ steps.version.outputs.name }} --build-number=$GITHUB_RUN_NUMBER
+          --build-name=${{ steps.version.outputs.name }} --build-number="$GITHUB_RUN_NUMBER"
         working-directory: app
-      - name: Name both zips
+      - name: release/ and lab/
         run: |
-          mkdir -p "$RUNNER_TEMP/lab"
+          out=$RUNNER_TEMP/webui
+          mkdir -p "$out/lab"
           for z in app/build/webui/*.zip; do
-            cp "$z" "$RUNNER_TEMP/lab/$(basename "$z" .zip)-arm64-v8a+x86_64.zip"
+            cp "$z" "$out/lab/$(basename "$z" .zip)-arm64-v8a+x86_64.zip"
           done
-          cd "$RUNNER_TEMP"
-          { echo "# release asset, arm64-v8a (update.json points here)"
-            (cd release && sha256sum *.zip)
-            echo "# module branch, arm64-v8a+x86_64 (lab emulators)"
-            (cd lab && sha256sum *.zip); } > SHA256SUMS
-          echo "# packed from p0g-stack/demo $GITHUB_SHA by flutter_p0g $FLUTTER_P0G_REF" >> SHA256SUMS
-          cp SHA256SUMS release/ && cat SHA256SUMS
+          # module.prop's updateJson reads the release; the branch carries
+          # the same update.json and changelog.md beside its zip.
+          cp "$out/release/update.json" "$out/release/changelog.md" "$out/lab/"
+          cd "$out/release"
+          { sha256sum ./*.zip update.json changelog.md
+            echo "# release assets, arm64-v8a (update.json points here), packed from p0g-stack/demo $GITHUB_SHA by flutter_p0g $FLUTTER_P0G_REF"
+          } > SHA256SUMS
+          cd "$out/lab"
+          { sha256sum ./*.zip update.json changelog.md
+            echo "# module branch, arm64-v8a+x86_64 (lab emulators), packed from p0g-stack/demo $GITHUB_SHA by flutter_p0g $FLUTTER_P0G_REF"
+          } > SHA256SUMS
+          sed -i 's#  \./#  #' "$out/release/SHA256SUMS" "$out/lab/SHA256SUMS"
+          cat "$out/release/SHA256SUMS" "$out/lab/SHA256SUMS"
       - uses: actions/upload-artifact@v4
         with:
           name: demo-webui-module
-          path: |
-            ${{ runner.temp }}/release/
-            ${{ runner.temp }}/lab/*.zip
-      # The zip on a branch too, like native-android: one commit, replaced
-      # on each push to main. update.json and changelog.md (module.prop's
-      # updateJson) go with it; a GitHub release publishing all three is
-      # what the manager's update button reads.
-      - name: Publish module branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          src="$GITHUB_SHA"
-          mkdir -p "$RUNNER_TEMP/module"
-          cp "$RUNNER_TEMP"/lab/*.zip "$RUNNER_TEMP"/SHA256SUMS "$RUNNER_TEMP"/release/update.json "$RUNNER_TEMP"/release/changelog.md "$RUNNER_TEMP/module/"
-          cd "$RUNNER_TEMP/module"
-          git init -q -b module
-          git config user.name github-actions
-          git config user.email github-actions@users.noreply.github.com
-          git add -A
-          git commit -q -m "WebUI module from $src"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" module
-      # A GitHub release with the zip, update.json and changelog.md:
-      # module.prop's updateJson reads releases/latest/download/, and
-      # "latest" skips prereleases, so these are plain releases (0.x).
-      - name: Publish release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: v${{ steps.version.outputs.name }}
-        # The tag goes up with git: the releases API refuses this token a
-        # tag it creates itself (HTTP 403), while a pushed tag is fine.
-        run: |
-          git tag "$TAG" "$GITHUB_SHA"
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" "refs/tags/$TAG"
-          cd "$RUNNER_TEMP/release"
-          # A re-run after aera-release made an AERA-only release for this
-          # tag (module failed the first time) completes that release.
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber \
-              *.zip update.json changelog.md SHA256SUMS
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
-              --notes-file changelog.md --latest
-          else
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
-              --title "demo $TAG" --notes-file changelog.md --latest \
-              *.zip update.json changelog.md SHA256SUMS
-          fi
+          path: ${{ runner.temp }}/webui/
 
   # The AERA plugin (.aerap), packed by flutter_p0g as a developer would:
   # `flutter build bundle` for linux-arm64 with flutter-aera's released
   # runtime kit (kit-3.47.5; only a debug kit is released so far, so this is
   # a debug build), with the demo crate cross-built for aarch64 Linux in
-  # usr/lib. The package goes on the `aera`
-  # branch and, as Flutter-Demo-<version>.aerap, on the run's release.
+  # usr/lib. The artifact is the `aera` branch's content and, as
+  # Flutter-Demo-<version>.aerap, a release asset (promote.yml).
   aera:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # the aera branch
+    outputs:
+      version: ${{ steps.version.outputs.name }}
+      kit_commit: ${{ steps.kit.outputs.commit }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -283,8 +261,15 @@ jobs:
       # republished kit fails here until AERA_KIT_SHA256 moves to it.
       - run: >
           flutter_p0g precache --frb
-          --aera-kit=https://github.com/p0g-stack/flutter-aera/releases/download/kit-3.47.5/flutter-aera-kit-linux-arm64-debug-3.47.5.tar.xz
-          --aera-kit-sha256=$AERA_KIT_SHA256
+          --aera-kit="$AERA_KIT_URL"
+          --aera-kit-sha256="$AERA_KIT_SHA256"
+      # The flutter-aera commit that built the installed kit (its kit.json),
+      # for the candidate: promote.yml requires the Kit run at that commit.
+      - id: kit
+        run: |
+          meta=${{ steps.cache.outputs.dir }}/aera-kit/linux-arm64-debug/kit.json
+          commit=$(jq -er .flutter_aera_commit "$meta")
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
       - run: bash tool/bootstrap.sh
         env:
           PLATFORMS: web
@@ -300,6 +285,8 @@ jobs:
         working-directory: app
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+      # AERA-SHA256SUMS, not SHA256SUMS: on the release it sits beside the
+      # module's release/SHA256SUMS.
       - name: Name the package
         run: |
           mkdir -p "$RUNNER_TEMP/aera"
@@ -307,64 +294,20 @@ jobs:
             "$RUNNER_TEMP/aera/Flutter-Demo-${{ steps.version.outputs.name }}.aerap"
           cp app/build/aera/plugin.json "$RUNNER_TEMP/aera/"
           cd "$RUNNER_TEMP/aera"
-          sha256sum *.aerap > SHA256SUMS
-          echo "# packed from p0g-stack/demo $GITHUB_SHA by flutter_p0g $FLUTTER_P0G_REF (kit-3.47.5 debug, sha256 $AERA_KIT_SHA256)" >> SHA256SUMS
+          sha256sum ./*.aerap plugin.json | sed 's#  \./#  #' > AERA-SHA256SUMS
+          echo "# packed from p0g-stack/demo $GITHUB_SHA by flutter_p0g $FLUTTER_P0G_REF (kit-3.47.5 debug, sha256 $AERA_KIT_SHA256, flutter-aera ${{ steps.kit.outputs.commit }})" >> AERA-SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: demo-aera
           path: ${{ runner.temp }}/aera/
-      - name: Publish aera branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          src="$GITHUB_SHA"
-          cd "$RUNNER_TEMP/aera"
-          git init -q -b aera
-          git config user.name github-actions
-          git config user.email github-actions@users.noreply.github.com
-          git add -A
-          git commit -q -m "AERA plugin from $src"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" aera
-
-  # The .aerap joins the module job's release for this run. When the module
-  # job failed there is no release yet, so this one makes it (not latest:
-  # the manager's update button reads latest for the module zip).
-  aera-release:
-    needs: [aera, module]
-    if: >-
-      always() && needs.aera.result == 'success'
-      && github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # the release
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: demo-aera
-          path: ${{ runner.temp }}/aera
-      - env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          aerap=$(ls "$RUNNER_TEMP"/aera/*.aerap); name=$(basename "$aerap")
-          version=${name#Flutter-Demo-}; TAG=v${version%.aerap}
-          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            # As in the module job: the tag goes up with git first.
-            git tag "$TAG" "$GITHUB_SHA"
-            git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" "refs/tags/$TAG"
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
-              --title "demo $TAG" --notes "AERA plugin only: the WebUI module build failed." --latest=false
-          fi
-          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "$aerap"
 
   # The plain web build, as a developer would make it with flutter_p0g:
   # stock web SDK, the Rust crate as single-threaded wasm, Squadron Web
   # Workers. Checked in headless Chromium from a plain static server (no
-  # COOP/COEP), then published on the `web` branch, which GitHub Pages
-  # serves at https://p0g-stack.github.io/demo/.
+  # COOP/COEP). The demo-web-site artifact is the `web` branch's content,
+  # which GitHub Pages serves at https://p0g-stack.github.io/demo/.
   web:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # the web branch
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -399,18 +342,100 @@ jobs:
           npx playwright install --with-deps chromium
           python3 -m http.server 8000 --directory site >/dev/null 2>&1 &
           node web_smoke.mjs http://127.0.0.1:8000/demo/
-      - name: Publish web branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      # As the branch needs it: wasm-pack puts a `*` .gitignore in pkg/,
+      # which would leave the crate's wasm out of the branch, and Pages
+      # must not run Jekyll.
+      - name: Site as published
         run: |
-          src="$GITHUB_SHA"
           cd "$RUNNER_TEMP/site/demo"
-          # wasm-pack puts a `*` .gitignore in pkg/, which would leave the
-          # crate's wasm out of the branch.
           find . -name .gitignore -delete
           touch .nojekyll
-          git init -q -b web
-          git config user.name github-actions
-          git config user.email github-actions@users.noreply.github.com
-          git add -A
-          git commit -q -m "Web build from $src by flutter_p0g $FLUTTER_P0G_REF"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: demo-web-site
+          path: ${{ runner.temp }}/site/demo/
+          include-hidden-files: true
+
+  # The candidate: what this run built, identified from the artifact bytes
+  # themselves. promote.yml downloads the same artifacts and refuses any
+  # mismatch. Pull requests and debug-signed runs are recorded but are
+  # never promotable.
+  candidate:
+    needs: [build, module, aera, web]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: demo-native-android
+          path: ${{ runner.temp }}/a/demo-native-android
+      - uses: actions/download-artifact@v4
+        with:
+          name: demo-webui-module
+          path: ${{ runner.temp }}/a/demo-webui-module
+      - uses: actions/download-artifact@v4
+        with:
+          name: demo-aera
+          path: ${{ runner.temp }}/a/demo-aera
+      - uses: actions/download-artifact@v4
+        with:
+          name: demo-web-site
+          path: ${{ runner.temp }}/a/demo-web-site
+      - name: candidate.json
+        env:
+          VERSION: ${{ needs.module.outputs.version }}
+          AERA_VERSION: ${{ needs.aera.outputs.version }}
+          SIGNING: ${{ needs.module.outputs.signing }}
+          KIT_COMMIT: ${{ needs.aera.outputs.kit_commit }}
+          ON_MAIN: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          set -euo pipefail
+          a=$RUNNER_TEMP/a
+          [ "$VERSION" = "$AERA_VERSION" ] || { echo "::error::module $VERSION and aera $AERA_VERSION versions differ"; exit 1; }
+          rel=$a/demo-webui-module/release; lab=$a/demo-webui-module/lab
+          (cd "$rel" && sha256sum -c SHA256SUMS)
+          (cd "$lab" && sha256sum -c SHA256SUMS)
+          (cd "$a/demo-aera" && sha256sum -c AERA-SHA256SUMS)
+          (cd "$a/demo-native-android" && sha256sum -c SHA256SUMS)
+          release_zip=$rel/demo-v$VERSION.zip
+          lab_zip=$lab/demo-v$VERSION-arm64-v8a+x86_64.zip
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner | sort -V | tail -1)
+          export APKSIGNER
+          cert=$(tool/apk_cert.sh "$release_zip")
+          lab_cert=$(tool/apk_cert.sh "$lab_zip")
+          [ "$cert" = "$lab_cert" ] || { echo "::error::release ($cert) and lab ($lab_cert) APK certificates differ"; exit 1; }
+          pinned=$(tr -d '[:space:]' < .github/webui-signing-cert.sha256)
+          promotable=false
+          if [ "$ON_MAIN" = true ]; then
+            [ "$SIGNING" = release ] || { echo "::error::main candidate without the release key"; exit 1; }
+            [ "$cert" = "$pinned" ] || { echo "::error::app-plane APK certificate $cert is not the pinned $pinned"; exit 1; }
+            promotable=true
+          fi
+          sha() { sha256sum "$1" | cut -d' ' -f1; }
+          mkdir -p "$RUNNER_TEMP/candidate"
+          jq -n \
+            --arg repo "$GITHUB_REPOSITORY" --arg sha "$GITHUB_SHA" --arg ref "$GITHUB_REF" --arg event "$GITHUB_EVENT_NAME" \
+            --arg run_id "$GITHUB_RUN_ID" --arg run_number "$GITHUB_RUN_NUMBER" --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg version "$VERSION" --arg signing "$SIGNING" --arg cert "$cert" --argjson promotable "$promotable" \
+            --arg flutter_p0g "$FLUTTER_P0G_REF" --arg kit_url "$AERA_KIT_URL" --arg kit_sha256 "$AERA_KIT_SHA256" --arg kit_commit "$KIT_COMMIT" \
+            --arg native "$(tool/bundle_digest.sh "$a/demo-native-android")" \
+            --arg module "$(tool/bundle_digest.sh "$a/demo-webui-module")" \
+            --arg aera "$(tool/bundle_digest.sh "$a/demo-aera")" \
+            --arg web "$(tool/bundle_digest.sh "$a/demo-web-site")" \
+            --arg release_zip "$(basename "$release_zip")" --arg release_zip_sha256 "$(sha "$release_zip")" \
+            --arg lab_zip "$(basename "$lab_zip")" --arg lab_zip_sha256 "$(sha "$lab_zip")" \
+            --arg aerap "Flutter-Demo-$VERSION.aerap" --arg aerap_sha256 "$(sha "$a/demo-aera/Flutter-Demo-$VERSION.aerap")" \
+            '{candidate: 1, repository: $repo, source_sha: $sha, ref: $ref, event: $event,
+              source_run_id: $run_id, source_run_number: $run_number, source_run_attempt: $run_attempt,
+              version: $version, promotable: $promotable, flutter_p0g_ref: $flutter_p0g,
+              apk_signing: $signing, apk_signing_cert_sha256: $cert,
+              aera_kit: {url: $kit_url, sha256: $kit_sha256, flutter_aera_commit: $kit_commit},
+              bundles: {"demo-native-android": $native, "demo-webui-module": $module, "demo-aera": $aera, "demo-web-site": $web},
+              module_zips: {release: {name: $release_zip, sha256: $release_zip_sha256}, lab: {name: $lab_zip, sha256: $lab_zip_sha256}},
+              aerap: {name: $aerap, sha256: $aerap_sha256}}' \
+            > "$RUNNER_TEMP/candidate/candidate.json"
+          cat "$RUNNER_TEMP/candidate/candidate.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: demo-candidate
+          path: ${{ runner.temp }}/candidate/candidate.json

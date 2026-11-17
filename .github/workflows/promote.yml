@@ -1,0 +1,308 @@
+name: promote
+
+# Publishes one qualified ci.yml run of main, as built: the version-tagged
+# GitHub release (module zip, update.json, changelog, AERA plugin and their
+# checksums), marked latest, then the native-android, module, aera and web
+# branches in one atomic push. Nothing is rebuilt or restamped: every byte
+# comes from the source run's artifacts, which must match its candidate.json.
+#
+# Qualification inputs:
+# - source_run_id: a successful ci.yml push or manual run on main whose head
+#   is the current main.
+# - manager_run_id: a successful p0g-stack/devicelab avd-ksu run whose
+#   lab-results evidence (runs/<stamp>-<label>-<manager_run_id>/
+#   demo-candidate.json, one per matrix leg) names this source run, its SHA
+#   and the lab module zip's sha256 it installed.
+# - aera_kit_run_id: the successful p0g-stack/flutter-aera Kit run at the
+#   commit that built the candidate's kit (kit.json flutter_aera_commit);
+#   this qualifies debug kit execution, not a physical arm64 demo run.
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: ci.yml run ID on main to publish
+        required: true
+        type: string
+      manager_run_id:
+        description: devicelab avd-ksu run ID that tested this candidate
+        required: true
+        type: string
+      aera_kit_run_id:
+        description: flutter-aera Kit run ID that built the candidate's kit
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the tag, release and artifact branches
+      actions: read # the source run and its artifacts
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      MANAGER_RUN_ID: ${{ inputs.manager_run_id }}
+      AERA_KIT_RUN_ID: ${{ inputs.aera_kit_run_id }}
+    steps:
+      - name: Main only
+        run: |
+          [ "$GITHUB_REF" = refs/heads/main ] || { echo "::error::promote runs on main only, not $GITHUB_REF"; exit 1; }
+          for id in "$SOURCE_RUN_ID" "$MANAGER_RUN_ID" "$AERA_KIT_RUN_ID"; do
+            [[ $id =~ ^[0-9]+$ ]] || { echo "::error::run ID '$id' is not a number"; exit 1; }
+          done
+          echo "A=$RUNNER_TEMP/a" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+
+      - name: Source run
+        id: source
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+          head=$(git rev-parse HEAD)
+          main=$(git ls-remote origin refs/heads/main | cut -f1)
+          [ "$head" = "$main" ] || fail "main moved to $main since this checkout ($head)"
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID")
+          q() { jq -r "$1" <<<"$run"; }
+          [ "$(q .repository.full_name)" = "$GITHUB_REPOSITORY" ] || fail "run $SOURCE_RUN_ID is not in $GITHUB_REPOSITORY"
+          [ "$(q .head_repository.full_name)" = "$GITHUB_REPOSITORY" ] || fail "run $SOURCE_RUN_ID built $(q .head_repository.full_name)"
+          [ "$(q .path)" = .github/workflows/ci.yml ] || fail "run $SOURCE_RUN_ID is $(q .path), not ci.yml"
+          case $(q .event) in push|workflow_dispatch) ;; *) fail "run $SOURCE_RUN_ID is a $(q .event) run";; esac
+          [ "$(q .head_branch)" = main ] || fail "run $SOURCE_RUN_ID is on $(q .head_branch), not main"
+          [ "$(q .status)/$(q .conclusion)" = completed/success ] || fail "run $SOURCE_RUN_ID is $(q .status)/$(q .conclusion)"
+          [ "$(q .head_sha)" = "$head" ] || fail "run $SOURCE_RUN_ID built $(q .head_sha), main is $head"
+          {
+            echo "sha=$head"
+            echo "number=$(q .run_number)"
+            echo "event=$(q .event)"
+            echo "created=$(q .created_at)"
+          } >> "$GITHUB_OUTPUT"
+
+      # Exactly that run's artifacts; an expired or missing one refuses.
+      - name: Artifacts
+        run: |
+          set -euo pipefail
+          list=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/artifacts?per_page=100")
+          for n in demo-candidate demo-native-android demo-webui-module demo-aera demo-web-site; do
+            state=$(jq -r --arg n "$n" '[.artifacts[] | select(.name == $n)] | if length != 1 then "missing" elif .[0].expired then "expired" else "ok" end' <<<"$list")
+            [ "$state" = ok ] || { echo "::error::artifact $n of run $SOURCE_RUN_ID is $state"; exit 1; }
+            gh run download "$SOURCE_RUN_ID" -R "$GITHUB_REPOSITORY" -n "$n" -D "$A/$n"
+          done
+
+      - name: Candidate
+        id: candidate
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          SOURCE_NUMBER: ${{ steps.source.outputs.number }}
+          SOURCE_EVENT: ${{ steps.source.outputs.event }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+          c=$A/demo-candidate/candidate.json
+          q() { jq -r "$1" "$c"; }
+          [ "$(q .candidate)" = 1 ] || fail "candidate.json format $(q .candidate)"
+          [ "$(q .repository)" = "$GITHUB_REPOSITORY" ] || fail "candidate is from $(q .repository)"
+          [ "$(q .source_sha)" = "$SOURCE_SHA" ] || fail "candidate source $(q .source_sha) is not $SOURCE_SHA"
+          [ "$(q .source_run_id)" = "$SOURCE_RUN_ID" ] || fail "candidate run $(q .source_run_id) is not $SOURCE_RUN_ID"
+          [ "$(q .source_run_number)" = "$SOURCE_NUMBER" ] || fail "candidate run number $(q .source_run_number) is not $SOURCE_NUMBER"
+          [ "$(q .event)" = "$SOURCE_EVENT" ] || fail "candidate is a $(q .event) build, the run a $SOURCE_EVENT run"
+          [ "$(q .ref)" = refs/heads/main ] || fail "candidate is a build of $(q .ref)"
+          [ "$(q .promotable)" = true ] || fail "candidate is not promotable"
+          [ "$(q .apk_signing)" = release ] || fail "candidate is signed with a $(q .apk_signing) key"
+          for n in demo-native-android demo-webui-module demo-aera demo-web-site; do
+            got=$(tool/bundle_digest.sh "$A/$n")
+            [ "$got" = "$(q ".bundles[\"$n\"]")" ] || fail "$n digest $got is not the candidate's $(q ".bundles[\"$n\"]")"
+          done
+          # The version and versionCode are the source run's number.
+          version=$(q .version)
+          base=$(sed -n 's/^version: *\([0-9]*\.[0-9]*\)\..*/\1/p' app/pubspec.yaml)
+          [ "$version" = "$base.$SOURCE_NUMBER" ] || fail "candidate version $version is not $base.$SOURCE_NUMBER"
+          rel=$A/demo-webui-module/release; lab=$A/demo-webui-module/lab
+          (cd "$rel" && sha256sum -c SHA256SUMS)
+          (cd "$lab" && sha256sum -c SHA256SUMS)
+          (cd "$A/demo-aera" && sha256sum -c AERA-SHA256SUMS)
+          (cd "$A/demo-native-android" && sha256sum -c SHA256SUMS)
+          for k in release lab; do
+            dir=$A/demo-webui-module/$k
+            z=$dir/$(q ".module_zips.$k.name")
+            [ "$(sha256sum "$z" | cut -d' ' -f1)" = "$(q ".module_zips.$k.sha256")" ] || fail "$k zip sha256 differs from the candidate"
+            prop=$(unzip -p "$z" module.prop)
+            grep -qx "version=v$version" <<<"$prop" || fail "$k zip module.prop version is not v$version"
+            grep -qx "versionCode=$SOURCE_NUMBER" <<<"$prop" || fail "$k zip module.prop versionCode is not $SOURCE_NUMBER"
+            jq -e --arg v "v$version" --argjson n "$SOURCE_NUMBER" --arg z "demo-v$version.zip" \
+              '.version == $v and .versionCode == $n and (.zipUrl | endswith("/" + $z))' "$dir/update.json" >/dev/null \
+              || fail "$k update.json is not v$version/$SOURCE_NUMBER"
+          done
+          [ "$(q .module_zips.release.name)" = "demo-v$version.zip" ] || fail "release zip is $(q .module_zips.release.name)"
+          [ "$(q .aerap.name)" = "Flutter-Demo-$version.aerap" ] || fail "AERA plugin is $(q .aerap.name)"
+          [ "$(sha256sum "$A/demo-aera/Flutter-Demo-$version.aerap" | cut -d' ' -f1)" = "$(q .aerap.sha256)" ] \
+            || fail "AERA plugin differs from the candidate"
+          # The actual APKs' signer, against the pinned certificate (not just
+          # what candidate.json says).
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner | sort -V | tail -1)
+          export APKSIGNER
+          pinned=$(tr -d '[:space:]' < .github/webui-signing-cert.sha256)
+          for k in release lab; do
+            cert=$(tool/apk_cert.sh "$A/demo-webui-module/$k/$(q ".module_zips.$k.name")")
+            [ "$cert" = "$pinned" ] || fail "$k app-plane APK certificate $cert is not the pinned $pinned"
+          done
+          [ "$(q .apk_signing_cert_sha256)" = "$pinned" ] || fail "candidate.json certificate $(q .apk_signing_cert_sha256) is not the pinned $pinned"
+          {
+            echo "version=$version"
+            echo "lab_zip_sha256=$(q .module_zips.lab.sha256)"
+            echo "kit_url=$(q .aera_kit.url)"
+            echo "kit_sha256=$(q .aera_kit.sha256)"
+            echo "kit_commit=$(q .aera_kit.flutter_aera_commit)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Manager run
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          LAB_ZIP_SHA256: ${{ steps.candidate.outputs.lab_zip_sha256 }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+          run=$(gh api "repos/p0g-stack/devicelab/actions/runs/$MANAGER_RUN_ID")
+          q() { jq -r "$1" <<<"$run"; }
+          [ "$(q .repository.full_name)" = p0g-stack/devicelab ] || fail "run $MANAGER_RUN_ID is not a devicelab run"
+          [ "$(q .path)" = .github/workflows/avd-ksu.yml ] || fail "run $MANAGER_RUN_ID is $(q .path), not avd-ksu.yml"
+          [ "$(q .status)/$(q .conclusion)" = completed/success ] || fail "avd-ksu run $MANAGER_RUN_ID is $(q .status)/$(q .conclusion)"
+          lab=$RUNNER_TEMP/lab-results
+          git clone -q --depth 1 --filter=blob:none --no-checkout -b lab-results https://github.com/p0g-stack/devicelab "$lab"
+          mapfile -t dirs < <(git -C "$lab" ls-tree -d --name-only HEAD runs/ | grep -E -- "-$MANAGER_RUN_ID\$" || true)
+          [ "${#dirs[@]}" -gt 0 ] || fail "no lab-results evidence for avd-ksu run $MANAGER_RUN_ID"
+          for d in "${dirs[@]}"; do
+            ev=$(git -C "$lab" show "HEAD:$d/demo-candidate.json" 2>/dev/null) || fail "$d has no demo-candidate.json"
+            jq -e --arg id "$SOURCE_RUN_ID" --arg sha "$SOURCE_SHA" --arg zip "$LAB_ZIP_SHA256" \
+              '(.source_run_id | tostring) == $id and .source_sha == $sha and .module_zip_sha256 == $zip' <<<"$ev" >/dev/null \
+              || fail "$d evidence does not name run $SOURCE_RUN_ID, $SOURCE_SHA and module $LAB_ZIP_SHA256: $ev"
+            echo "evidence: $d"
+          done
+
+      - name: AERA kit run
+        env:
+          KIT_URL: ${{ steps.candidate.outputs.kit_url }}
+          KIT_SHA256: ${{ steps.candidate.outputs.kit_sha256 }}
+          KIT_COMMIT: ${{ steps.candidate.outputs.kit_commit }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+          run=$(gh api "repos/p0g-stack/flutter-aera/actions/runs/$AERA_KIT_RUN_ID")
+          q() { jq -r "$1" <<<"$run"; }
+          [ "$(q .repository.full_name)" = p0g-stack/flutter-aera ] || fail "run $AERA_KIT_RUN_ID is not a flutter-aera run"
+          [ "$(q .path)" = .github/workflows/kit.yml ] || fail "run $AERA_KIT_RUN_ID is $(q .path), not kit.yml"
+          [ "$(q .status)/$(q .conclusion)" = completed/success ] || fail "Kit run $AERA_KIT_RUN_ID is $(q .status)/$(q .conclusion)"
+          [ "$(q .head_sha)" = "$KIT_COMMIT" ] || fail "Kit run $AERA_KIT_RUN_ID built $(q .head_sha), the candidate's kit is from $KIT_COMMIT"
+          gh api "repos/p0g-stack/flutter-aera/actions/runs/$AERA_KIT_RUN_ID/artifacts?per_page=100" \
+            --jq '.artifacts[].name' | grep -qx kit-arm64 || fail "Kit run $AERA_KIT_RUN_ID has no kit-arm64 artifact"
+          # The kit's bytes and its own pins, against the candidate.
+          curl -fsSL -o "$RUNNER_TEMP/kit.tar.xz" "$KIT_URL"
+          got=$(sha256sum "$RUNNER_TEMP/kit.tar.xz" | cut -d' ' -f1)
+          [ "$got" = "$KIT_SHA256" ] || fail "kit at $KIT_URL is $got, the candidate used $KIT_SHA256"
+          member=$(tar -tJf "$RUNNER_TEMP/kit.tar.xz" | grep -Ex '(\./)?kit\.json')
+          tar -xJOf "$RUNNER_TEMP/kit.tar.xz" "$member" | jq -e --arg c "$KIT_COMMIT" \
+            '.flutter_aera_commit == $c and .arch == "arm64" and .mode == "debug"' \
+            || fail "kit.json does not name flutter-aera $KIT_COMMIT arm64 debug"
+
+      # One draft release at the source version's tag; absent assets are
+      # uploaded, present ones must be byte-identical (never clobbered).
+      # Downloaded back and verified before it is published as latest.
+      - name: Release
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          VERSION: ${{ steps.candidate.outputs.version }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+          sha() { sha256sum "$1" | cut -d' ' -f1; }
+          TAG=v$VERSION
+          assets=$RUNNER_TEMP/assets; mkdir -p "$assets"
+          cp "$A"/demo-webui-module/release/* "$assets/"
+          cp "$A/demo-aera/Flutter-Demo-$VERSION.aerap" "$A/demo-aera/plugin.json" "$A/demo-aera/AERA-SHA256SUMS" "$assets/"
+          expected=$(find "$assets" -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)
+          echo "assets:"; echo "$expected"
+
+          # The tag goes up with git: the releases API refuses this token a
+          # tag it creates itself (HTTP 403), while a pushed tag is fine.
+          tagged=$(git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" | sort -k2 | tail -1 | cut -f1)
+          if [ -z "$tagged" ]; then
+            git push origin "$SOURCE_SHA:refs/tags/$TAG"
+          elif [ "$tagged" != "$SOURCE_SHA" ]; then
+            fail "tag $TAG is at $tagged, not the source $SOURCE_SHA"
+          fi
+
+          if ! state=$(gh release view "$TAG" --json isDraft,tagName 2>/dev/null); then
+            gh release create "$TAG" --draft --verify-tag --latest=false \
+              --title "demo $TAG" --notes-file "$assets/changelog.md"
+            state=$(gh release view "$TAG" --json isDraft,tagName)
+          fi
+          [ "$(jq -r .tagName <<<"$state")" = "$TAG" ] || fail "release lookup for $TAG returned $(jq -r .tagName <<<"$state")"
+          draft=$(jq -r .isDraft <<<"$state")
+
+          present=$(gh release view "$TAG" --json assets --jq '.assets[].name' | LC_ALL=C sort)
+          extra=$(LC_ALL=C comm -13 <(echo "$expected") <(echo "$present"))
+          [ -z "$extra" ] || fail "release $TAG has assets this candidate lacks: $extra"
+          cmpdir=$RUNNER_TEMP/existing; mkdir -p "$cmpdir"
+          for f in $expected; do
+            if grep -qxF "$f" <<<"$present"; then
+              gh release download "$TAG" -p "$f" -D "$cmpdir" --clobber
+              [ "$(sha "$cmpdir/$f")" = "$(sha "$assets/$f")" ] || fail "release $TAG asset $f differs from the candidate's; not replacing it"
+              echo "same: $f"
+            else
+              gh release upload "$TAG" "$assets/$f"
+              echo "uploaded: $f"
+            fi
+          done
+
+          verify=$RUNNER_TEMP/verify; rm -rf "$verify"; mkdir -p "$verify"
+          gh release download "$TAG" -D "$verify"
+          [ "$(find "$verify" -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)" = "$expected" ] || fail "release $TAG assets are not exactly the candidate's"
+          for f in $expected; do
+            [ "$(sha "$verify/$f")" = "$(sha "$assets/$f")" ] || fail "release $TAG asset $f downloads as different bytes"
+          done
+          echo "release $TAG verified"
+
+          # module.prop's updateJson reads releases/latest/download/, and
+          # "latest" skips prereleases, so this is a plain release (0.x).
+          if [ "$draft" = true ]; then
+            gh release edit "$TAG" --draft=false --latest
+            echo "release $TAG published as latest"
+          else
+            echo "release $TAG was already published"
+          fi
+
+      # The four artifact branches, each one commit with the artifact's
+      # content, pushed together. The commits are dated by the source run,
+      # so a rerun recreates the same commits and the push is a no-op.
+      - name: Artifact branches
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          SOURCE_CREATED: ${{ steps.source.outputs.created }}
+        run: |
+          set -euo pipefail
+          repo=$RUNNER_TEMP/branches
+          git init -q "$repo"
+          export GIT_AUTHOR_NAME=github-actions GIT_AUTHOR_EMAIL=github-actions@users.noreply.github.com
+          export GIT_COMMITTER_NAME=$GIT_AUTHOR_NAME GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
+          export GIT_AUTHOR_DATE=$SOURCE_CREATED GIT_COMMITTER_DATE=$SOURCE_CREATED
+          url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}"
+          args=()
+          branch() { # branch dir message
+            local idx="$repo/.git/index-$1" tree commit old
+            GIT_INDEX_FILE=$idx git -C "$repo" --work-tree="$2" add -A .
+            tree=$(GIT_INDEX_FILE=$idx git -C "$repo" write-tree)
+            commit=$(git -C "$repo" commit-tree "$tree" -m "$3")
+            old=$(git ls-remote "$url" "refs/heads/$1" | cut -f1)
+            echo "$1: ${old:-none} -> $commit"
+            args+=("--force-with-lease=refs/heads/$1:$old" "$commit:refs/heads/$1")
+          }
+          branch native-android "$A/demo-native-android" "libdemo_native.so for Android from $SOURCE_SHA"
+          branch module "$A/demo-webui-module/lab" "WebUI module from $SOURCE_SHA"
+          branch aera "$A/demo-aera" "AERA plugin from $SOURCE_SHA"
+          branch web "$A/demo-web-site" "Web build from $SOURCE_SHA"
+          git -C "$repo" push --atomic "$url" "${args[@]}"
