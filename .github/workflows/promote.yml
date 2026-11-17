@@ -184,6 +184,10 @@ jobs:
             echo "evidence: $d"
           done
 
+      # The Kit run qualifies by any successful attempt at the kit's producer
+      # commit (a later attempt, e.g. an immutability rerun refusing to
+      # republish, may fail and replace the run's artifacts). The bytes are
+      # the source-tagged release's: kit-<flutter>-<producer SHA>.
       - name: AERA kit run
         env:
           KIT_URL: ${{ steps.candidate.outputs.kit_url }}
@@ -192,14 +196,26 @@ jobs:
         run: |
           set -euo pipefail
           fail() { echo "::error::$*"; exit 1; }
-          run=$(gh api "repos/p0g-stack/flutter-aera/actions/runs/$AERA_KIT_RUN_ID")
-          q() { jq -r "$1" <<<"$run"; }
-          [ "$(q .repository.full_name)" = p0g-stack/flutter-aera ] || fail "run $AERA_KIT_RUN_ID is not a flutter-aera run"
-          [ "$(q .path)" = .github/workflows/kit.yml ] || fail "run $AERA_KIT_RUN_ID is $(q .path), not kit.yml"
-          [ "$(q .status)/$(q .conclusion)" = completed/success ] || fail "Kit run $AERA_KIT_RUN_ID is $(q .status)/$(q .conclusion)"
-          [ "$(q .head_sha)" = "$KIT_COMMIT" ] || fail "Kit run $AERA_KIT_RUN_ID built $(q .head_sha), the candidate's kit is from $KIT_COMMIT"
-          gh api "repos/p0g-stack/flutter-aera/actions/runs/$AERA_KIT_RUN_ID/artifacts?per_page=100" \
-            --jq '.artifacts[].name' | grep -qx kit-arm64 || fail "Kit run $AERA_KIT_RUN_ID has no kit-arm64 artifact"
+          api=repos/p0g-stack/flutter-aera
+          run=$(gh api "$api/actions/runs/$AERA_KIT_RUN_ID")
+          [ "$(jq -r .repository.full_name <<<"$run")" = p0g-stack/flutter-aera ] || fail "run $AERA_KIT_RUN_ID is not a flutter-aera run"
+          attempts=$(jq -r .run_attempt <<<"$run")
+          ok=
+          for n in $(seq 1 "$attempts"); do
+            a=$(gh api "$api/actions/runs/$AERA_KIT_RUN_ID/attempts/$n")
+            state=$(jq -r '[.path, .status, .conclusion, .head_sha] | join(" ")' <<<"$a")
+            echo "attempt $n: $state"
+            if [ "$state" = ".github/workflows/kit.yml completed success $KIT_COMMIT" ]; then ok=$n; fi
+          done
+          [ -n "$ok" ] || fail "Kit run $AERA_KIT_RUN_ID has no successful kit.yml attempt at $KIT_COMMIT"
+          # The release tagged with the producer SHA must hold the candidate's
+          # kit at its URL, with its digest.
+          tags=$(gh api --paginate "$api/releases?per_page=100" --jq '.[].tag_name' | grep -E -- "^kit-.*-$KIT_COMMIT\$" || true)
+          [ "$(grep -c . <<<"$tags")" = 1 ] || fail "expected one kit-*-$KIT_COMMIT release, found: ${tags:-none}"
+          asset=$(gh api "$api/releases/tags/$tags" | jq -c --arg u "$KIT_URL" '[.assets[] | select(.browser_download_url == $u)]')
+          [ "$(jq length <<<"$asset")" = 1 ] || fail "release $tags has no asset at $KIT_URL"
+          [ "$(jq -r '.[0].digest' <<<"$asset")" = "sha256:$KIT_SHA256" ] \
+            || fail "release $tags asset digest $(jq -r '.[0].digest' <<<"$asset") is not sha256:$KIT_SHA256"
           # The kit's bytes and its own pins, against the candidate.
           curl -fsSL -o "$RUNNER_TEMP/kit.tar.xz" "$KIT_URL"
           got=$(sha256sum "$RUNNER_TEMP/kit.tar.xz" | cut -d' ' -f1)
@@ -208,6 +224,7 @@ jobs:
           tar -xJOf "$RUNNER_TEMP/kit.tar.xz" "$member" | jq -e --arg c "$KIT_COMMIT" \
             '.flutter_aera_commit == $c and .arch == "arm64" and .mode == "debug"' \
             || fail "kit.json does not name flutter-aera $KIT_COMMIT arm64 debug"
+          echo "Kit run $AERA_KIT_RUN_ID attempt $ok built $KIT_COMMIT; release $tags holds $KIT_SHA256"
 
       # One draft release at the source version's tag; absent assets are
       # uploaded, present ones must be byte-identical (never clobbered).
