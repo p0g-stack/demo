@@ -5,6 +5,7 @@
   "killShellWhenBackground": false,
   "pullToRefresh": false,
   "permissions": [
-    "kernelsu.permission.SHELL"
+    "kernelsu.permission.SHELL",
+    "kernelsu.permission.PM"
   ]
 }

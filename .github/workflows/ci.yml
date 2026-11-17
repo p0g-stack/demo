@@ -15,8 +15,8 @@ permissions:
 
 # flutter_p0g for the module and web jobs: patched frb, build webui, build web.
 env:
-  FLUTTER_P0G_REF: a00aa6af51690ec2353d55621dfd79fd0bccf55c
-  BRICKS_REF: 81f6282597bbc10371e09fb15b9b83450355ccb7
+  FLUTTER_P0G_REF: 2612b4d73a4f643d49f30d0940917b15f4ae09a3
+  BRICKS_REF: 4db4a419a44da5ae5f49c97bb21e2a5633b029b1
   # Source-tagged arm64 debug kit; Kit run 44043686997, successful attempt 1.
   AERA_KIT_URL: https://github.com/p0g-stack/flutter-aera/releases/download/kit-3.47.9-0c28b4e291849f008d7ee3fd063e2670d0f9116b/flutter-aera-kit-linux-arm64-debug-3.47.9.tar.xz
   AERA_KIT_SHA256: 31c2131acd5966a50e96b9438c6e48d63126be806fcbe4da747479ae6a56caed
